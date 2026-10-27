@@ -19,8 +19,11 @@ header,footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:spa
 h1{font-size:16px;font-weight:500;margin:0}
 .pdf{font-size:14px;color:var(--muted)}
 .stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;margin:12px 0;container-type:size}
-.stage img{display:block;width:min(100cqw,100cqh*453.543/255.118);height:auto;aspect-ratio:453.543/255.118;background:#fff;border-radius:4px;
+.frame{position:relative;width:min(100cqw,100cqh*453.543/255.118);aspect-ratio:453.543/255.118;background:#fff;border-radius:4px;overflow:hidden;
   box-shadow:0 1px 3px rgba(0,0,0,.12),0 6px 24px rgba(0,0,0,.08);cursor:pointer;user-select:none}
+.frame img{display:block;width:100%;height:100%}
+.frame a{position:absolute;border-radius:2px}
+.frame a:hover,.frame a:focus-visible{outline:2px solid rgba(31,79,209,.45);outline-offset:1px;background:rgba(31,79,209,.06)}
 footer{justify-content:center}
 button{font:inherit;font-size:15px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);border-radius:6px;padding:6px 14px;cursor:pointer}
 button:hover{border-color:var(--exp)}
@@ -30,7 +33,7 @@ button:focus-visible{outline:2px solid var(--exp);outline-offset:2px}
 :fullscreen body,body:fullscreen{background:#000;padding:0}
 body:fullscreen header,body:fullscreen footer{display:none}
 body:fullscreen .stage{margin:0}
-body:fullscreen .stage img{border-radius:0;box-shadow:none}
+body:fullscreen .frame{border-radius:0;box-shadow:none}
 </style>
 </head>
 <body>
@@ -39,7 +42,7 @@ body:fullscreen .stage img{border-radius:0;box-shadow:none}
   <h1>Session 2: Strategic Asset Allocation</h1>
   <a class="pdf" href="session-2/session-2-slides.pdf" download>Download PDF</a>
 </header>
-<div class="stage"><img id="slide" alt=""></div>
+<div class="stage"><div class="frame" id="frame"><img id="slide" alt=""><div id="hot"></div></div></div>
 <footer>
   <button id="prev" aria-label="Previous slide">←</button>
   <span class="num" id="num"></span>
@@ -48,13 +51,22 @@ body:fullscreen .stage img{border-radius:0;box-shadow:none}
 </footer>
 <script>
 const DIR='session-2', N=33;
-const img=document.getElementById('slide'), num=document.getElementById('num'),
+// Link rectangles from the PDF, per slide, as fractions of the page: url = web link, page = jump to slide
+const LINKS=[[],[{"x":0.12905,"y":0.24492,"w":0.5058,"h":0.05615,"page":3},{"x":0.12905,"y":0.35088,"w":0.55096,"h":0.05615,"page":9},{"x":0.12905,"y":0.45684,"w":0.41299,"h":0.05615,"page":14},{"x":0.12905,"y":0.5628,"w":0.57497,"h":0.05615,"page":21},{"x":0.12905,"y":0.66876,"w":0.60753,"h":0.05615,"page":26},{"x":0.12905,"y":0.77472,"w":0.28987,"h":0.05373,"page":30}],[{"x":0.14155,"y":0.3273,"w":0.5058,"h":0.05615,"page":3},{"x":0.14155,"y":0.40399,"w":0.54444,"h":0.05472,"page":9},{"x":0.14155,"y":0.47924,"w":0.40993,"h":0.05472,"page":14},{"x":0.14155,"y":0.5545,"w":0.56922,"h":0.05472,"page":21},{"x":0.14155,"y":0.62976,"w":0.60162,"h":0.05472,"page":26},{"x":0.14155,"y":0.70502,"w":0.28776,"h":0.05305,"page":30}],[{"x":0.12942,"y":0.03358,"w":0.2927,"h":0.03518,"page":3}],[{"x":0.12942,"y":0.03358,"w":0.2927,"h":0.03518,"page":3}],[{"x":0.12942,"y":0.03358,"w":0.2927,"h":0.03518,"page":3}],[{"x":0.12942,"y":0.03358,"w":0.2927,"h":0.03518,"page":3}],[{"x":0.12942,"y":0.03358,"w":0.2927,"h":0.03518,"page":3},{"x":0.68855,"y":0.26193,"w":0.21689,"h":0.38559,"url":"https://www.menti.com/al74hm2gdkua"}],[{"x":0.14155,"y":0.3273,"w":0.49863,"h":0.05472,"page":3},{"x":0.14155,"y":0.40256,"w":0.55096,"h":0.05615,"page":9},{"x":0.14155,"y":0.47924,"w":0.40993,"h":0.05472,"page":14},{"x":0.14155,"y":0.5545,"w":0.56922,"h":0.05472,"page":21},{"x":0.14155,"y":0.62976,"w":0.60162,"h":0.05472,"page":26},{"x":0.14155,"y":0.70502,"w":0.28776,"h":0.05305,"page":30}],[{"x":0.13023,"y":0.03358,"w":0.31942,"h":0.03518,"page":9}],[{"x":0.13023,"y":0.03358,"w":0.31942,"h":0.03518,"page":9}],[{"x":0.13023,"y":0.03358,"w":0.31942,"h":0.03518,"page":9}],[{"x":0.13023,"y":0.03358,"w":0.31942,"h":0.03518,"page":9}],[{"x":0.14155,"y":0.3273,"w":0.49863,"h":0.05472,"page":3},{"x":0.14155,"y":0.40256,"w":0.54444,"h":0.05472,"page":9},{"x":0.14155,"y":0.47782,"w":0.41299,"h":0.05615,"page":14},{"x":0.14155,"y":0.5545,"w":0.56922,"h":0.05472,"page":21},{"x":0.14155,"y":0.62976,"w":0.60162,"h":0.05472,"page":26},{"x":0.14155,"y":0.70502,"w":0.28776,"h":0.05305,"page":30}],[{"x":0.13028,"y":0.03358,"w":0.24096,"h":0.03518,"page":14}],[{"x":0.13028,"y":0.03358,"w":0.24096,"h":0.03518,"page":14},{"x":0.68855,"y":0.26193,"w":0.21689,"h":0.38559,"url":"https://www.menti.com/al74hm2gdkua"}],[{"x":0.13028,"y":0.03358,"w":0.24096,"h":0.03518,"page":14}],[{"x":0.13028,"y":0.03358,"w":0.24096,"h":0.03518,"page":14}],[{"x":0.13028,"y":0.03358,"w":0.24096,"h":0.03518,"page":14}],[{"x":0.13028,"y":0.03358,"w":0.24096,"h":0.03518,"page":14}],[{"x":0.14155,"y":0.3273,"w":0.49863,"h":0.05472,"page":3},{"x":0.14155,"y":0.40256,"w":0.54444,"h":0.05472,"page":9},{"x":0.14155,"y":0.47782,"w":0.40993,"h":0.05472,"page":14},{"x":0.14155,"y":0.55307,"w":0.57497,"h":0.05615,"page":21},{"x":0.14155,"y":0.62976,"w":0.60162,"h":0.05472,"page":26},{"x":0.14155,"y":0.70502,"w":0.28776,"h":0.05305,"page":30}],[{"x":0.13097,"y":0.03358,"w":0.33388,"h":0.03518,"page":21}],[{"x":0.13097,"y":0.03358,"w":0.33388,"h":0.03518,"page":21}],[{"x":0.13097,"y":0.03358,"w":0.33388,"h":0.03518,"page":21}],[{"x":0.13097,"y":0.03358,"w":0.33388,"h":0.03518,"page":21}],[{"x":0.14155,"y":0.3273,"w":0.49863,"h":0.05472,"page":3},{"x":0.14155,"y":0.40256,"w":0.54444,"h":0.05472,"page":9},{"x":0.14155,"y":0.47782,"w":0.40993,"h":0.05472,"page":14},{"x":0.14155,"y":0.55307,"w":0.56922,"h":0.05472,"page":21},{"x":0.14155,"y":0.62833,"w":0.60752,"h":0.05615,"page":26},{"x":0.14155,"y":0.70502,"w":0.28776,"h":0.05305,"page":30}],[{"x":0.13053,"y":0.03358,"w":0.35278,"h":0.03518,"page":26}],[{"x":0.13053,"y":0.03358,"w":0.35278,"h":0.03518,"page":26}],[{"x":0.13053,"y":0.03358,"w":0.35278,"h":0.03518,"page":26}],[{"x":0.14155,"y":0.3276,"w":0.49863,"h":0.05472,"page":3},{"x":0.14155,"y":0.40286,"w":0.54444,"h":0.05472,"page":9},{"x":0.14155,"y":0.47812,"w":0.40993,"h":0.05472,"page":14},{"x":0.14155,"y":0.55338,"w":0.56922,"h":0.05472,"page":21},{"x":0.14155,"y":0.62863,"w":0.60162,"h":0.05472,"page":26},{"x":0.14155,"y":0.70389,"w":0.28986,"h":0.05373,"page":30}],[{"x":0.13096,"y":0.03456,"w":0.16969,"h":0.0342,"page":30}],[{"x":0.13096,"y":0.03456,"w":0.16969,"h":0.0342,"page":30}],[{"x":0.13096,"y":0.03456,"w":0.16969,"h":0.0342,"page":30}]];
+const img=document.getElementById('slide'), frame=document.getElementById('frame'), hot=document.getElementById('hot'), num=document.getElementById('num'),
       prev=document.getElementById('prev'), next=document.getElementById('next');
 const src=i=>`${DIR}/${String(i).padStart(2,'0')}.svg`;
 let cur=1;
 function show(i){
   cur=Math.min(N,Math.max(1,i));
   img.src=src(cur); img.alt=`Slide ${cur} of ${N}`;
+  hot.replaceChildren(...(LINKS[cur-1]||[]).map(l=>{
+    const a=document.createElement('a');
+    Object.assign(a.style,{left:l.x*100+'%',top:l.y*100+'%',width:l.w*100+'%',height:l.h*100+'%'});
+    if(l.url){a.href=l.url;a.target='_blank';a.rel='noopener';a.title=l.url;}
+    else{a.href='#'+l.page;a.title='Go to slide '+l.page;a.onclick=e=>{e.preventDefault();show(l.page);};}
+    a.addEventListener('click',e=>e.stopPropagation());
+    return a;}));
   num.textContent=`${cur} / ${N}`;
   prev.disabled=cur===1; next.disabled=cur===N;
   history.replaceState(null,'','#'+cur);
@@ -62,7 +74,7 @@ function show(i){
 }
 prev.onclick=()=>show(cur-1);
 next.onclick=()=>show(cur+1);
-img.onclick=e=>{const r=img.getBoundingClientRect();show(e.clientX-r.left<r.width/3?cur-1:cur+1);};
+frame.onclick=e=>{const r=frame.getBoundingClientRect();show(e.clientX-r.left<r.width/3?cur-1:cur+1);};
 document.getElementById('fs').onclick=toggleFs;
 function toggleFs(){document.fullscreenElement?document.exitFullscreen():document.body.requestFullscreen?.();}
 document.addEventListener('keydown',e=>{
@@ -75,8 +87,8 @@ document.addEventListener('keydown',e=>{
   else if(k==='f'||k==='F')toggleFs();
 });
 let x0=null;
-img.addEventListener('touchstart',e=>{x0=e.touches[0].clientX;},{passive:true});
-img.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;
+frame.addEventListener('touchstart',e=>{x0=e.touches[0].clientX;},{passive:true});
+frame.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;
   if(Math.abs(dx)>40){e.preventDefault();show(dx<0?cur+1:cur-1);}});
 show(parseInt(location.hash.slice(1))||1);
 </script>
