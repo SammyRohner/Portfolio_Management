@@ -1,0 +1,977 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Black–Litterman Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,500;8..60,600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<style>
+/* Layout: two lecture screens. Screen 1 = equation script (left) + Figure 5 rebuilt on real data (right). Screen 2 = predictor x horizon explorer. Blue = forecast, amber = realised, red = forecasts built from the dividend yield, green = the link from today's yield to future returns. */
+:root{
+  --bg:#f2f4f6; --surface:#ffffff; --ink:#14202b; --muted:#5a6877; --rule:#d3dae2; --soft:#e6eaef;
+  --exp:#1f4fd1; --real:#b8650f; --today:#9c2f6b; --fc:#c62828; --link:#2e8b3e;
+  --f-display:"Source Serif 4", Georgia, "Times New Roman", serif;
+  --f-body:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e141a; --surface:#151d25; --ink:#e5ebf1; --muted:#93a2b1; --rule:#2a3642; --soft:#1d2731;
+  --exp:#80a3ff; --real:#f0a54a; --today:#e48ab9; --fc:#ff6b6b; --link:#5fcf74; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e141a; --surface:#151d25; --ink:#e5ebf1; --muted:#93a2b1; --rule:#2a3642; --soft:#1d2731;
+  --exp:#80a3ff; --real:#f0a54a; --today:#e48ab9; --fc:#ff6b6b; --link:#5fcf74; color-scheme:dark}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.5;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:16px 28px}
+.wrap{max-width:1440px;margin:0 auto;display:grid;gap:16px}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:end;gap:10px 24px}
+.eyebrow{font-family:var(--f-mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+h1{font-family:var(--f-display);font-weight:600;font-size:clamp(26px,3vw,38px);line-height:1.1;margin:4px 0 0;text-wrap:balance}
+.screens{display:flex;gap:4px;background:var(--soft);padding:4px;border-radius:8px;flex-wrap:wrap}
+.screens button{font:inherit;font-size:14px;font-weight:500;border:0;background:transparent;color:var(--muted);padding:7px 12px;border-radius:6px;cursor:pointer}
+.screens button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.screens kbd{font-family:var(--f-mono);font-size:11px;margin-right:6px;color:var(--muted)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--exp);outline-offset:2px}
+
+/* ---------- screen 1 ---------- */
+.s1{display:grid;grid-template-columns:minmax(400px,560px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:1000px){.s1{grid-template-columns:minmax(0,1fr)}}
+.script{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;display:grid;gap:12px;min-width:0}
+.stepnav{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.stepnum{font-family:var(--f-mono);font-size:12px;color:var(--muted);letter-spacing:.06em}
+.navbtns{display:flex;gap:6px}
+.nb{font:inherit;font-size:15px;border:1px solid var(--rule);background:var(--bg);color:var(--ink);width:36px;height:32px;border-radius:6px;cursor:pointer}
+.nb:disabled{opacity:.35;cursor:default}
+.script h2{font-family:var(--f-display);font-weight:600;font-size:24px;line-height:1.2;margin:0;text-wrap:balance}
+.model{font-size:13px;color:var(--muted);border:1px dashed var(--rule);border-radius:8px;padding:6px 10px;display:grid;gap:2px}
+.model{font-size:14px}
+.model .eq{font-size:18px}
+.eqs{display:grid;gap:12px;padding-block:4px;min-width:0}
+.eq>span:first-child{overflow-x:auto;max-width:100%}
+.eq{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:2px 14px;font-size:23px;line-height:1.35;color:var(--ink);transition:opacity .25s}
+.eq>span:first-child{min-width:0}
+.eq.dim{opacity:.0;pointer-events:none}
+.eq .ann{font-family:var(--f-mono);font-size:15.5px;line-height:1.4;color:var(--fc);white-space:nowrap;margin-left:auto;text-align:right}
+.eq .ann:empty{display:none}
+.eq math{font-size:1.05em}
+.script p{margin:0;font-size:17px}
+.pts ul{margin:0;padding-left:22px;display:grid;gap:8px;font-size:17.5px;line-height:1.45}
+.pts li::marker{color:var(--fc)}
+.pts b{font-family:var(--f-body);font-weight:600}
+.script p b{font-family:var(--f-mono);font-weight:500;font-size:.95em}
+.dots{display:flex;gap:6px}
+.dot{width:24px;height:4px;border-radius:2px;background:var(--rule);border:0;padding:0;cursor:pointer}
+.dot.on{background:var(--ink)}
+.secs button{font-size:13px}
+.ctab th.grp{text-align:center;border-bottom:1px solid var(--rule)}
+.ctab td.na{color:var(--muted)}
+.ctab td[data-k]{cursor:pointer}
+.ctab td.sel{box-shadow:inset 0 -3px 0 var(--exp)}
+.eqhd{font-family:var(--f-mono);font-size:12.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:6px 0 -6px;transition:opacity .25s}
+.eqhd.dim{opacity:0}
+.ctab.cmp th{font-size:12.5px;padding:3px 5px;line-height:1.2}
+.ctab.cmp td{padding:5px 5px;font-size:14px}
+.ctab.cmp td:first-child{font-size:14.5px;white-space:nowrap}
+.ctab.cmp .tgt{font-size:12.5px}
+.opts{display:grid;gap:10px}
+.seg2{display:flex;gap:4px;background:var(--soft);padding:3px;border-radius:7px;width:max-content;max-width:100%;flex-wrap:wrap}
+.seg2 button{font:inherit;font-size:13.5px;border:0;background:transparent;color:var(--muted);padding:5px 10px;border-radius:5px;cursor:pointer}
+.seg2 button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.lbl{font-size:13px;color:var(--muted)}
+.ctl label{display:flex;justify-content:space-between;font-size:14px;color:var(--muted)}
+.ctl output{font-family:var(--f-mono);color:var(--ink)}
+input[type=range]{width:100%;accent-color:var(--fc)}
+.go{font:inherit;font-size:15px;font-weight:600;border:0;background:var(--ink);color:var(--bg);padding:9px 14px;border-radius:7px;cursor:pointer;justify-self:start}
+canvas{display:block;width:100%}
+#fig{height:600px;cursor:crosshair}
+#cfig{height:620px}
+#ifig{height:640px}
+#pfig{height:600px}
+.refs{display:grid;gap:6px;border-top:1px solid var(--rule);padding-top:12px}
+.refs ul{margin:0 0 6px;padding-left:20px;display:grid;gap:6px;font-size:14.5px;line-height:1.4}
+.refs a{color:var(--exp)}
+.sumgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:6px 0}
+@media (max-width:700px){.sumgrid{grid-template-columns:minmax(0,1fr)}}
+.sc{background:var(--bg);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;display:grid;gap:8px;align-content:start}
+.sc h3{font-family:var(--f-display);font-size:21px;line-height:1.2;margin:0;color:var(--ink)}
+.scsrc{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--fc)}
+.sc ul{margin:0;padding-left:20px;display:grid;gap:6px;font-size:15.5px;line-height:1.42}
+.sc li::marker{color:var(--fc)}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:6px 0}
+@media (max-width:700px){.cards{grid-template-columns:minmax(0,1fr)}}
+.card{font:inherit;text-align:left;background:var(--bg);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;cursor:pointer;display:grid;gap:10px;color:var(--ink)}
+.card .q{font-family:var(--f-display);font-size:19px;line-height:1.35}
+.card .ans{font-size:15.5px;color:var(--exp);border-top:1px solid var(--rule);padding-top:10px}
+.card.open{border-color:var(--exp)}
+.ctab{border-collapse:collapse;width:100%;font-size:16px;font-variant-numeric:tabular-nums}
+.ctab th{font-size:14px;font-weight:500;color:var(--muted);text-align:right;padding:4px 8px;border-bottom:1px solid var(--rule)}
+.ctab th:first-child,.ctab td:first-child{text-align:left}
+.ctab td{padding:7px 8px;border-bottom:1px solid var(--rule);text-align:right;font-family:var(--f-mono);font-size:15px}
+.ctab td:first-child{font-family:var(--f-body);font-size:16px}
+.ctab .tgt{font-weight:600;font-size:14px}
+.ctab .st{color:var(--exp);font-weight:600}
+.ctab td:first-child{line-height:1.25}
+.ctab tr[data-k]{cursor:pointer}
+.ctab tr.on td{background:var(--soft)}
+.ctab td.neg{color:var(--fc);font-weight:500}
+.ctab td.pos{color:var(--link);font-weight:500}
+#chk{height:170px}
+/* ---------- start and wrap-up decks ---------- */
+.deck{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:22px 40px 30px;min-height:660px;display:grid;gap:18px;align-content:start}
+.deck h2{font-family:var(--f-display);font-weight:600;font-size:clamp(28px,3vw,40px);line-height:1.15;margin:0}
+.deck .sub{font-size:20px;color:var(--muted);margin:-8px 0 0}
+.tp{display:grid;gap:14px;padding:70px 0 0 20px;max-width:1000px}
+.tp .ey{font-family:var(--f-mono);font-size:16px;letter-spacing:.08em;color:var(--real);font-weight:500}
+.tp .big{font-family:var(--f-display);font-weight:600;font-size:clamp(48px,6vw,84px);line-height:1.02;margin:0}
+.tp .sub2{font-size:clamp(20px,2vw,28px);color:var(--muted)}
+.tp hr{border:0;border-top:1px solid var(--rule);width:420px;margin:22px 0 6px}
+.tp .who{font-size:18px;line-height:1.5}
+.tp .rd{font-size:16px;color:var(--muted)}
+.tp .go2{margin-top:34px;font-family:var(--f-mono);font-size:14px;color:var(--muted)}
+.ag{border-collapse:collapse;width:100%;font-size:19px}
+.ag th{font-size:14px;font-weight:500;color:var(--muted);text-align:left;padding:6px 12px;border-bottom:1px solid var(--rule)}
+.ag td{padding:14px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+.ag tr[data-go]{cursor:pointer}.ag tr[data-go]:hover td{background:var(--soft)}
+.ag .lt{font-family:var(--f-mono);font-weight:600;color:var(--exp);font-size:20px;width:46px}
+.ag .nm{font-weight:600}.ag .ds{display:block;font-size:15.5px;color:var(--muted);font-weight:400;margin-top:2px}
+.ag .rf{font-size:15.5px;color:var(--muted);white-space:nowrap}
+.chain{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:34px;margin:18px 0 6px}
+@media (max-width:800px){.chain{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.box{position:relative;border:1px solid var(--rule);border-radius:10px;padding:18px 14px;text-align:center;background:var(--bg);display:grid;gap:4px}
+.box:not(:last-child)::after{content:"→";position:absolute;right:-28px;top:50%;transform:translateY(-50%);font-size:24px;color:var(--muted)}
+.box b{font-size:19px}.box span{font-size:16px;color:var(--muted)}.box .ss{font-family:var(--f-mono);font-size:13px;color:var(--muted)}
+.box.now{border:2px solid var(--exp)}.box.dark{background:var(--ink);color:var(--bg)}.box.dark span,.box.dark .ss{color:var(--bg);opacity:.8}
+.box .tag{font-family:var(--f-mono);font-size:13px;color:var(--exp);font-weight:600;margin-top:6px}
+.deck ul.big{margin:0;padding-left:26px;display:grid;gap:12px;font-size:21px;line-height:1.45}
+.deck ul.big li::marker{color:var(--fc)}
+.deck .dim{opacity:0;transition:opacity .25s}
+.tk{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+@media (max-width:800px){.tk{grid-template-columns:minmax(0,1fr)}}
+.tk .sc h3{font-size:24px}.tk .sc p{margin:0;font-size:18px;line-height:1.45}.tk .sc .num{font-family:var(--f-mono);font-size:15px;color:var(--fc);line-height:1.5}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:30px}
+@media (max-width:800px){.two{grid-template-columns:minmax(0,1fr)}}
+.two h3{font-family:var(--f-display);font-size:22px;margin:0 0 10px}
+.two ol,.two ul{margin:0;padding-left:24px;display:grid;gap:9px;font-size:18px;line-height:1.42}
+.two li::marker{color:var(--fc)}
+.banner{font-size:22px;color:var(--bg);background:var(--ink);padding:18px 26px;border-radius:10px;margin:0}
+.lnk{font:inherit;font-size:16px;font-weight:600;color:var(--exp);text-decoration:none;border:1px solid var(--rule);border-radius:8px;padding:8px 14px;display:inline-block;background:var(--bg)}
+.dates{border-collapse:collapse;font-size:17px}.dates td{padding:6px 18px 6px 0;border-bottom:1px solid var(--rule)}.dates td:first-child{font-family:var(--f-mono);font-size:15px;white-space:nowrap;color:var(--muted)}
+.refl{columns:2 460px;column-gap:40px;margin:0;padding-left:20px;font-size:15.5px;line-height:1.45}.refl li{break-inside:avoid;margin-bottom:8px}.refl a{color:var(--exp)}
+.deck .lbl2{font-family:var(--f-mono);font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+
+/* ---------- screen 2 ---------- */
+.bar{display:flex;flex-wrap:wrap;gap:14px 28px;align-items:end;background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:14px 16px}
+.grp{display:grid;gap:6px;min-width:0}
+.grp>span{font-size:13px;color:var(--muted)}
+.seg{display:flex;flex-wrap:wrap;gap:4px;background:var(--soft);padding:4px;border-radius:8px}
+.seg button{font:inherit;border:0;background:transparent;color:var(--muted);padding:6px 12px;border-radius:6px;cursor:pointer;text-align:left;line-height:1.2}
+.seg button b{display:block;font-size:15px;font-weight:600}
+.seg button small{font-size:12px}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.hz{flex:1 1 300px}
+.hz label{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--muted)}
+.hz output{font-family:var(--f-mono);font-size:24px;font-weight:500;color:var(--ink)}
+.hz input{accent-color:var(--exp);height:28px}
+.check{display:flex;gap:8px;align-items:center;font-size:15px;cursor:pointer;padding-bottom:6px}
+.check input{accent-color:var(--exp);width:17px;height:17px}
+.say{font-family:var(--f-display);font-size:clamp(18px,1.5vw,21px);line-height:1.4;margin:0;padding-left:22px;columns:2 420px;column-gap:48px}
+.say li{break-inside:avoid;margin-bottom:6px}
+.say li::marker{color:var(--fc)}
+.say b{font-family:var(--f-mono);font-weight:500;font-size:.92em}
+.say .exp{color:var(--exp)} .say .today{color:var(--today)}
+.grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:16px}
+@media (max-width:1000px){.grid{grid-template-columns:minmax(0,1fr)}}
+figure{margin:0;background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:12px 14px 10px;min-width:0;display:grid;gap:6px}
+figcaption{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 14px;align-items:baseline}
+figcaption b{font-weight:600;font-size:16px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13.5px;color:var(--muted)}
+.sw{display:inline-block;width:16px;height:3px;border-radius:2px;vertical-align:middle;margin-right:6px}
+.dotsw{display:inline-block;width:9px;height:9px;border-radius:50%;vertical-align:middle;margin-right:6px}
+#ts,#sc{height:340px}
+#r2{height:150px}
+.foot{font-size:12.5px;color:var(--muted);border-top:1px solid var(--rule);padding-top:10px;display:flex;flex-wrap:wrap;gap:6px 20px;justify-content:space-between}
+kbd.k{font-family:var(--f-mono);font-size:12px;border:1px solid var(--rule);border-bottom-width:2px;border-radius:4px;padding:0 5px;background:var(--surface)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+<style>
+#cfig{height:640px}
+.fightml{min-height:560px;display:grid;align-content:start;gap:14px;padding:6px 4px}
+.ctl{display:grid;gap:4px}
+.ctl input[type=range]{accent-color:var(--exp)}
+.ctl label output{font-size:15px}
+.ctl .hint{font-size:12.5px;color:var(--muted)}
+.ctrlrow{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+/* horizon timeline (B1) */
+.hzn{display:grid;gap:16px;margin-top:10px}
+.hzn .axis{display:grid;grid-template-columns:repeat(4,1fr);font-family:var(--f-mono);font-size:14px;color:var(--muted);border-top:2px solid var(--rule);padding-top:8px}
+.hzn .row{display:grid;grid-template-columns:repeat(4,1fr);align-items:center;min-height:86px;transition:opacity .25s}
+.hzn .row.dim{opacity:0}
+.hzn .blk{border-radius:10px;padding:12px 16px;display:grid;gap:3px;font-size:16px}
+.hzn .blk b{font-size:18px}
+.hzn .blk span{font-size:14.5px;opacity:.85}
+.hzn .eqb{grid-column:1 / span 4;background:var(--soft);border:2px dashed var(--muted)}
+.hzn .cma{grid-column:3 / span 1;background:color-mix(in srgb,var(--real) 18%,var(--surface));border:2px solid var(--real)}
+.hzn .prd{grid-column:1 / span 2;background:color-mix(in srgb,var(--exp) 14%,var(--surface));border:2px solid var(--exp)}
+.hzn .tag{font-family:var(--f-mono);font-size:13px;font-weight:600}
+.quote{font-family:var(--f-display);font-size:20px;color:var(--muted);border-left:3px solid var(--rule);padding-left:14px;margin:6px 0 0}
+/* placeholder */
+.soon{font-size:19px;line-height:1.5;color:var(--muted)}
+.soon ul{margin:8px 0 0;padding-left:22px}
+</style>
+<style>
+.mxrow{display:flex;flex-wrap:wrap;gap:18px 26px;align-items:flex-start}
+.mxw{display:grid;gap:6px}
+.mxn{font-family:var(--f-display);font-size:20px;font-weight:600}
+.mxn span{font-family:var(--f-mono);font-size:12.5px;font-weight:400;color:var(--muted);margin-left:8px}
+.mxt{border-collapse:separate;border-spacing:3px;font-variant-numeric:tabular-nums}
+.mxt th{font-size:13px;font-weight:500;color:var(--muted);padding:2px 6px;text-align:center}
+.mxt tbody th{text-align:right}
+.mxt td{font-family:var(--f-mono);font-size:16px;min-width:74px;padding:9px 8px;text-align:center;border-radius:6px;border:1px solid var(--rule)}
+.mxc{font-size:13px;color:var(--muted);max-width:330px}
+.vport{display:grid;gap:10px}
+.vp{display:grid;grid-template-columns:80px 1fr;gap:10px;align-items:baseline;font-size:17px}
+.sbar{position:relative;height:24px;min-width:120px}
+.sbar .ax{position:absolute;left:50%;top:0;bottom:0;border-left:1px solid var(--muted)}
+.sbar .seg{position:absolute;top:4px;height:16px;border-radius:3px;opacity:.9}
+.sbar .sv{position:absolute;top:2px;font-family:var(--f-mono);font-size:12.5px;white-space:nowrap;color:var(--ink)}
+.wf{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+.wf th{font-size:13.5px;font-weight:500;color:var(--muted);padding:6px 8px;text-align:center}
+.wf tbody th{text-align:left;color:var(--ink);font-size:15px}
+.wf td{padding:8px;border-top:1px solid var(--rule);font-family:var(--f-mono);font-size:15px;text-align:center}
+.wf td{vertical-align:middle}
+.wf .fm{font-size:12px;color:var(--muted);margin-top:2px}
+.wf tbody th{width:70px}
+.byhand{background:var(--soft);border-radius:8px;padding:12px 16px;font-size:16px;line-height:1.5}
+</style>
+<style>
+.tk .sc h3{font-size:24px}.tk .sc p{margin:0;font-size:18px;line-height:1.45}.tk .sc .num{font-family:var(--f-mono);font-size:15px;color:var(--fc);line-height:1.5}
+</style>
+<style>
+.bigp{display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr);gap:22px;align-items:start}
+@media (max-width:900px){.bigp{grid-template-columns:minmax(0,1fr)}}
+.bigl{font-size:17px!important;gap:9px!important}
+#dk_cv{width:100%;height:600px;display:block}
+</style>
+<div class="wrap">
+  <div class="top">
+    <div>
+      <div class="eyebrow">PM 2026 · Session 5 · Black–Litterman</div>
+      <h1 id="h1"></h1>
+    </div>
+    <div class="screens" id="tabs"></div>
+  </div>
+
+  <!-- start / wrap-up decks -->
+  <section id="sDeck" hidden><div class="deck"><div class="stepnav"><span class="stepnum" id="dk_num"></span>
+    <div class="navbtns"><button class="nb" id="dk_prev" aria-label="Back">←</button><button class="nb" id="dk_next" aria-label="Forward">→</button></div></div>
+    <div id="dk_body" style="display:grid;gap:18px"></div></div></section>
+
+  <!-- parts A–E -->
+  <section id="sLab" class="s1" hidden>
+    <div class="script">
+      <div class="stepnav"><span class="stepnum" id="c_num"></span>
+        <div class="navbtns"><button class="nb" id="c_prev" aria-label="Back">←</button><button class="nb" id="c_next" aria-label="Forward">→</button></div></div>
+      <h2 id="c_title"></h2>
+      <div class="eqs" id="c_eqs"></div>
+      <div id="c_text" class="pts"></div>
+      <div id="c_refs" class="refs" hidden></div>
+      <div class="dots" id="c_dots"></div>
+      <div class="opts" id="c_ctrls"></div>
+      <div class="lbl" id="c_note"></div>
+    </div>
+    <figure>
+      <figcaption><b id="c_figT"></b><span class="legend" id="c_leg"></span></figcaption>
+      <canvas id="cfig" role="img" aria-label="Chart for the current step"></canvas>
+      <div id="chtml" class="fightml" hidden></div>
+    </figure>
+  </section>
+
+  <div class="foot"><span id="keys"></span><span id="src"></span></div>
+</div>
+<script>
+const DATA={"codes": ["US_EQ", "DMXUS_EQ", "EM_EQ", "REAL_ASSETS", "IG_BOND", "HY_BOND", "EMD_HC", "CTA"], "short": ["US eq", "Dev eq", "EM eq", "Real", "IG", "HY", "EMD", "MF"], "long": ["US equity", "Developed ex-US equity", "Emerging-markets equity", "Real assets", "Investment-grade bonds", "High-yield bonds", "EM debt", "Managed futures"], "S": [[0.02308442, 0.02192263, 0.02291932, 0.02014439, 0.00081886, 0.00795312, 0.0092649, -0.00230473], [0.02192263, 0.0284088, 0.03108718, 0.02206062, 0.00144952, 0.00928295, 0.01222666, -0.00285882], [0.02291932, 0.03108718, 0.04186885, 0.02247437, 0.00134961, 0.01038078, 0.01466866, -0.00309964], [0.02014439, 0.02206062, 0.02247437, 0.04201891, 0.00286262, 0.01034174, 0.01207046, -0.00195394], [0.00081886, 0.00144952, 0.00134961, 0.00286262, 0.00175304, 0.00120113, 0.00206531, -0.00074297], [0.00795312, 0.00928295, 0.01038078, 0.01034174, 0.00120113, 0.00577533, 0.00598754, -0.00229872], [0.0092649, 0.01222666, 0.01466866, 0.01207046, 0.00206531, 0.00598754, 0.0101394, -0.00279793], [-0.00230473, -0.00285882, -0.00309964, -0.00195394, -0.00074297, -0.00229872, -0.00279793, 0.01075633]], "wm": [0.3, 0.13, 0.06, 0.04, 0.41, 0.01, 0.05, 0.0], "aqr": [0.026, 0.036, 0.038, 0.018, 0.012, 0.014, 0.019], "gold": [0.0335, 0.0485, 0.0775, 0.055499999999999994, 0.011499999999999996, 0.027500000000000004, 0.004500000000000004, -0.0005000000000000004], "rob": {"mv": [0.1088, 0.2005, 0.4978, 0.4712, 0.3997, 0.58, 0.2912, 0.4, 0.6403, 0.4149, 0.5704, 0.3768, 0.8295, 0.4, 0.2912, 0.3554, 0.8055, 0.1343, 0.4, 0.5088, 0.8712, 0.3638, 0.4712, 0.7809, 0.4342, 0.18, 0.5596, 0.2346, 0.18, 0.5799, 0.1965, 0.4, 0.5827, 0.4, 0.18, 0.5403, 0.4732, 0.1243, 0.58, 0.4261, 0.58, 0.5051, 0.5626, 0.174, 0.8, 0.4, 0.9088, 0.9088, 0.6152, 0.5292, 0.5068, 0.2316, 0.7971, 0.4712, 0.4222, 0.58, 0.0624, 0.4712, 0.325, 0.0712, 0.1224, 0.4, 0.8, 0.1088, 0.4509, 0.8, 0.5088, 0.2015, 0.8, 0.5385, 0.4554, 0.4376, 0.58, 0.5707, 0.4927, 0.812, 0.0833, 0.4936, 0.1452, 0.333, 0.4712, 0.1724, 0.4868, 0.2419, 0.4168, 0.18, 0.6745, 0.4525, 0.2746, 0.8016, 0.5088, 0.1614, 0.8, 0.3325, 0.4, 0.6779, 0.2912, 0.4712, 0.5621, 0.1107, 0.4, 0.1617, 0.4401, 0.5229, 0.5088, 0.4743, 0.5262, 0.5088, 0.9088, 0.6577, 0.58, 0.3352, 0.8546, 0.4413, 0.5255, 0.6602, 0.3913, 0.0096, 0.1952, 0.2068, 0.509, 0.58, 0.9088, 0.4797, 0.7423, 0.7515, 0.603, 0.1859, 0.4357, 0.2912, 0.5088, 0.58, 0.6878, 0.0874, 0.5976, 0.2984, 0.7666, 0.6912, 0.5809, 0.18, 0.8, 0.8, 0.0576, 0.3135, 0.8, 0.4393, 0.18, 0.114, 0.37, 0.4343, 0.4, 0.18, 0.0845, 0.9088, 0.4181, 0.7526, 0.1383, 0.3922, 0.69, 0.5088, 0.5203, 0.5088, 0.4622, 0.73, 0.4712, 0.8505, 0.9088, 0.58, 0.5088, 0.0223, 0.673, 0.58, 0.8712, 0.58, 0.7472, 0.0712, 0.5136, 0.1296, 0.4602, 0.8, 0.4712, 0.8712, 0.1576, 0.4, 0.4911, 0.3215, 0.5672, 0.4, 0.2912, 0.9088, 0.1088, 0.4412, 0.581, 0.4135, 0.5088, 0.7019, 0.8011, 0.8095, 0.4584, 0.9088, 0.8, 0.18, 0.58, 0.18, 0.4065, 0.3651, 0.5308, 0.5685, 0.5088, 0.573, 0.4, 0.2912, 0.0612, 0.35, 0.18, 0.1648, 0.2912, 0.5722, 0.443, 0.4062, 0.1457, 0.4753, 0.9088, 0.9088, 0.6157, 0.2912, 0.8716, 0.4712, 0.4204, 0.5088, 0.6322, 0.1143, 0.5461, 0.2912, 0.4712, 0.18, 0.5088, 0.4695, 0.4712, 0.4096, 0.1239, 0.0712, 0.1088, 0.3378, 0.6982, 0.757, 0.1088, 0.8, 0.8, 0.1342, 0.518, 0.2912, 0.8, 0.7248, 0.2912, 0.4712, 0.5246, 0.122, 0.3208, 0.4, 0.5932, 0.5088, 0.8, 0.1212, 0.8, 0.4, 0.2912, 0.9078, 0.5923, 0.4, 0.4244, 0.4712, 0.4102, 0.4278, 0.4, 0.5548, 0.5287, 0.4, 0.7937, 0.1112, 0.4777, 0.2912, 0.1478, 0.8, 0.5826, 0.0749, 0.4282, 0.1088, 0.58, 0.0319, 0.6367, 0.7465, 0.6685, 0.1387, 0.4642, 0.58, 0.6264, 0.2912, 0.4, 0.5768], "bl": [0.1859, 0.0674, 0.1555, 0.2424, 0.3265, 0.105, 0.2243, 0.2099, 0.5046, 0.2513, 0.3001, 0.1305, 0.4916, 0.3618, 0.2507, 0.2613, 0.5706, 0.2264, 0.6182, 0.2802, 0.6056, 0.2067, 0.1913, 0.5523, 0.514, 0.2265, 0.3456, 0.2557, 0.1415, 0.1101, 0.1548, 0.2517, 0.5236, 0.4921, 0.2924, 0.1152, 0.4398, 0.1912, 0.3256, 0.1586, 0.1606, 0.3927, 0.1776, 0.1562, 0.286, 0.1916, 0.5429, 0.693, 0.171, 0.0566, 0.3598, 0.1443, 0.7433, 0.1994, 0.7491, 0.3191, 0.1565, 0.4394, 0.2372, 0.1718, 0.1415, 0.2208, 0.4076, 0.1701, 0.4104, 0.5532, 0.4065, 0.2343, 0.6156, 0.1217, 0.3031, 0.2814, 0.1801, 0.2618, 0.1315, 0.519, 0.1793, 0.2165, 0.1884, 0.1539, 0.2021, 0.1696, 0.1489, 0.3073, 0.161, 0.1415, 0.5607, 0.236, 0.0675, 0.4196, 0.0643, 0.1012, 0.7308, 0.2174, 0.1828, 0.5198, 0.1765, 0.1732, 0.2195, 0.1456, 0.3704, 0.2399, 0.3073, 0.215, 0.2912, 0.5115, 0.2633, 0.5741, 0.5575, 0.2157, 0.2661, 0.1736, 0.6838, 0.1383, 0.1968, 0.4456, 0.4605, 0.1671, 0.2046, 0.0614, 0.3287, 0.2152, 0.7405, 0.1818, 0.5398, 0.4079, 0.2118, 0.1948, 0.1415, 0.1571, 0.1858, 0.3578, 0.3362, 0.0536, 0.2913, 0.343, 0.36, 0.5757, 0.3266, 0.2329, 0.8238, 0.42, 0.0729, 0.036, 0.4192, 0.3048, 0.2182, 0.3397, 0.2074, 0.4573, 0.591, 0.1439, 0.1355, 0.8027, 0.0615, 0.47, 0.1419, 0.1676, 0.4135, 0.2026, 0.0697, 0.6529, 0.2319, 0.3865, 0.108, 0.8238, 0.8016, 0.1503, 0.317, 0.0603, 0.3124, 0.2024, 0.8238, 0.1898, 0.3146, 0.2009, 0.1821, 0.0871, 0.1404, 0.4594, 0.2989, 0.5741, 0.1611, 0.102, 0.4824, 0.2506, 0.1503, 0.2353, 0.3296, 0.6089, 0.3471, 0.2522, 0.4414, 0.5479, 0.6541, 0.6056, 0.6388, 0.7516, 0.1532, 0.746, 0.5069, 0.3744, 0.1155, 0.1477, 0.6236, 0.1472, 0.5192, 0.4178, 0.2135, 0.1588, 0.3408, 0.248, 0.1034, 0.1376, 0.0888, 0.3386, 0.2059, 0.6481, 0.318, 0.1936, 0.2529, 0.3491, 0.7618, 0.8238, 0.2137, 0.215, 0.4962, 0.1818, 0.4746, 0.3003, 0.2566, 0.2182, 0.2815, 0.11, 0.2345, 0.2575, 0.3229, 0.2131, 0.3471, 0.1351, 0.1073, 0.2489, 0.1795, 0.1818, 0.5386, 0.3683, 0.3744, 0.8238, 0.7838, 0.1909, 0.1153, 0.0607, 0.5789, 0.6436, 0.1666, 0.2425, 0.2216, 0.2329, 0.2071, 0.644, 0.2669, 0.2012, 0.3473, 0.1994, 0.6805, 0.1801, 0.1818, 0.5688, 0.2073, 0.2822, 0.1952, 0.2733, 0.1667, 0.1523, 0.3248, 0.6504, 0.5035, 0.2542, 0.6478, 0.0886, 0.3133, 0.0962, 0.1415, 0.718, 0.3797, 0.2094, 0.5116, 0.17, 0.2556, 0.103, 0.2919, 0.2834, 0.3461, 0.2083, 0.4927, 0.3172, 0.2749, 0.2637, 0.5179, 0.193], "ex": [{"e": [-0.0123, 0.00175, -0.0117, 0.01351, 0.00834, 0.01138, -0.00886], "wm": [0.0, 0.1803, 0.0, 0.0, 0.4, 0.3997, 0.0, 0.0, 0.02], "wb": [0.0, 0.1539, 0.0, 0.1234, 0.4, 0.2032, 0.0995, 0.0, 0.02], "tm": 0.3997, "tb": 0.3265}, {"e": [-0.01465, -0.00452, 0.02107, 0.00847, 0.01791, -0.00992, -0.0246], "wm": [0.0, 0.0, 0.4, 0.0176, 0.4, 0.0, 0.0, 0.1461, 0.0364], "wb": [0.0, 0.1733, 0.0596, 0.1086, 0.4, 0.0, 0.112, 0.0, 0.1466], "tm": 0.5088, "tb": 0.2802}, {"e": [0.00657, -0.00232, -0.00149, 0.00642, 0.01825, -0.00713, 0.01348], "wm": [0.18, 0.0, 0.0, 0.0, 0.4, 0.0, 0.4, 0.0, 0.02], "wb": [0.0, 0.1194, 0.0, 0.0606, 0.4, 0.0, 0.4, 0.0, 0.02], "tm": 0.4712, "tb": 0.2424}, {"e": [-0.01741, -0.00699, 0.02255, -0.00583, 0.0112, 0.00455, -0.00153], "wm": [0.0, 0.0, 0.4, 0.0, 0.4, 0.1704, 0.0, 0.0096, 0.02], "wb": [0.0, 0.047, 0.1468, 0.0, 0.4, 0.0, 0.3862, 0.0, 0.02], "tm": 0.5704, "tb": 0.3001}, {"e": [-0.02087, -0.01269, 0.00162, 0.00032, 0.0069, 0.01523, -0.00339], "wm": [0.0, 0.0, 0.18, 0.0, 0.4, 0.4, 0.0, 0.0, 0.02], "wb": [0.0, 0.0216, 0.0713, 0.046, 0.4, 0.2201, 0.2211, 0.0, 0.02], "tm": 0.58, "tb": 0.3256}, {"e": [-0.01957, -0.01805, -0.01282, 0.00117, 0.02033, -0.00382, 0.00251], "wm": [0.0, 0.0, 0.0806, 0.0, 0.4, 0.0, 0.4, 0.0994, 0.02], "wb": [0.0, 0.0, 0.0, 0.1069, 0.4, 0.0731, 0.4, 0.0, 0.02], "tm": 0.4, "tb": 0.3618}, {"e": [0.0107, -0.00728, 0.00753, 0.0111, 0.00755, -0.00204, -0.03747], "wm": [0.3802, 0.0, 0.1794, 0.0, 0.4, 0.0, 0.0, 0.0204, 0.02], "wb": [0.3079, 0.0928, 0.0, 0.0817, 0.4, 0.0, 0.0, 0.0129, 0.1046], "tm": 0.5596, "tb": 0.3456}, {"e": [-0.01431, -0.00913, 0.01293, -0.00593, 0.00257, -0.01217, 0.0017], "wm": [0.0, 0.0, 0.4, 0.0, 0.4, 0.0, 0.0939, 0.0861, 0.02], "wb": [0.0, 0.0959, 0.1212, 0.0, 0.4, 0.0, 0.3498, 0.0131, 0.02], "tm": 0.4149, "tb": 0.2513}, {"e": [-0.00619, -0.01551, -0.01103, -0.01537, -0.00617, -0.0056, -0.00541], "wm": [0.1683, 0.0, 0.0925, 0.0, 0.4, 0.0, 0.1905, 0.1287, 0.02], "wb": [0.1998, 0.0581, 0.051, 0.0, 0.4, 0.0, 0.114, 0.0, 0.1771], "tm": 0.4, "tb": 0.2517}, {"e": [0.00198, -0.00036, 0.00517, 0.00487, 0.01148, -0.00802, -0.02288], "wm": [0.0763, 0.1534, 0.2406, 0.0, 0.4, 0.0, 0.0, 0.1097, 0.02], "wb": [0.1131, 0.2562, 0.0, 0.0722, 0.4, 0.0, 0.0, 0.0, 0.1585], "tm": 0.3554, "tb": 0.2613}, {"e": [0.00849, -0.01426, -0.00453, -0.02253, 0.00497, 0.00743, 0.00621], "wm": [0.3024, 0.0, 0.0, 0.0, 0.4, 0.0965, 0.1811, 0.0, 0.02], "wb": [0.1715, 0.039, 0.0124, 0.0, 0.3775, 0.0, 0.3795, 0.0, 0.02], "tm": 0.4712, "tb": 0.1913}, {"e": [-0.00269, 6e-05, 0.00173, -0.01163, 0.00833, 0.0219, 0.00814], "wm": [0.0, 0.076, 0.0732, 0.0, 0.4, 0.4, 0.0308, 0.0, 0.02], "wb": [0.0, 0.1599, 0.0, 0.0, 0.1621, 0.2581, 0.4, 0.0, 0.02], "tm": 0.4732, "tb": 0.4398}, {"e": [0.03151, 0.01618, 0.00827, -0.00664, 0.00994, -0.00443, -0.00022], "wm": [0.4, 0.18, 0.0, 0.0, 0.4, 0.0, 0.0, 0.0, 0.02], "wb": [0.2663, 0.2908, 0.0, 0.0, 0.4, 0.0, 0.023, 0.0, 0.02], "tm": 0.4, "tb": 0.2099}, {"e": [0.00551, -0.00029, 0.00191, -0.01096, -0.00239, -0.00105, -0.00852], "wm": [0.2628, 0.1454, 0.101, 0.0, 0.4, 0.0, 0.0, 0.0707, 0.02], "wb": [0.2443, 0.1719, 0.0479, 0.0, 0.4, 0.0221, 0.0452, 0.0, 0.0685], "tm": 0.3638, "tb": 0.2067}, {"e": [0.00161, -0.00614, -0.00404, 0.00548, -0.0013, -0.01374, -0.00477], "wm": [0.3299, 0.011, 0.1252, 0.0, 0.4, 0.0, 0.0, 0.1139, 0.02], "wb": [0.208, 0.1654, 0.0061, 0.008, 0.4, 0.0, 0.1115, 0.0302, 0.0708], "tm": 0.4978, "tb": 0.1555}, {"e": [-0.01063, -0.01047, -0.01957, -0.00028, 0.00947, -0.00357, 0.01396], "wm": [0.0, 0.1287, 0.0, 0.0, 0.4, 0.0, 0.4, 0.0513, 0.02], "wb": [0.0, 0.1111, 0.0, 0.0601, 0.4, 0.0088, 0.4, 0.0, 0.02], "tm": 0.2912, "tb": 0.2507}, {"e": [0.00469, -0.00138, -0.00497, -0.00245, 0.00961, -0.01028, 0.01141], "wm": [0.1349, 0.0451, 0.0, 0.0, 0.4, 0.0, 0.4, 0.0, 0.02], "wb": [0.0323, 0.1709, 0.0, 0.0, 0.4, 0.0, 0.3768, 0.0, 0.02], "tm": 0.4261, "tb": 0.1586}, {"e": [-0.00826, 0.01444, 0.00594, 0.0072, 0.02183, -0.00816, 0.02559], "wm": [0.0, 0.18, 0.0, 0.0, 0.4, 0.0, 0.4, 0.0, 0.02], "wb": [0.0, 0.1228, 0.0267, 0.0304, 0.4, 0.0, 0.4, 0.0, 0.02], "tm": 0.2912, "tb": 0.2243}, {"e": [0.00557, 0.00115, -0.0037, 0.00778, 0.00266, 0.00204, -0.01484], "wm": [0.1447, 0.315, 0.0, 0.0, 0.4, 0.0899, 0.0, 0.0304, 0.02], "wb": [0.2223, 0.1827, 0.0, 0.0445, 0.4, 0.1305, 0.0, 0.0, 0.02], "tm": 0.2346, "tb": 0.2557}, {"e": [0.00476, 0.02127, 0.02538, 0.00979, 0.00653, -0.01122, -0.0112], "wm": [0.0, 0.4, 0.18, 0.0, 0.4, 0.0, 0.0, 0.0, 0.02], "wb": [0.0674, 0.4, 0.0763, 0.0189, 0.4, 0.0, 0.0, 0.0175, 0.02], "tm": 0.18, "tb": 0.2924}, {"e": [-0.0088, 0.01395, 0.00355, 0.00571, -0.00676, 0.01303, -0.00861], "wm": [0.0, 0.4, 0.0, 0.0, 0.0746, 0.4, 0.0, 0.1054, 0.02], "wb": [0.0495, 0.3089, 0.0253, 0.0, 0.1963, 0.4, 0.0, 0.0, 0.02], "tm": 0.4342, "tb": 0.514}, {"e": [0.01623, 0.01534, 0.01478, 0.02079, -0.01217, 0.00673, 0.00761], "wm": [0.1704, 0.4, 0.0, 0.0, 0.0, 0.0903, 0.2347, 0.0846, 0.02], "wb": [0.3309, 0.188, 0.0787, 0.0073, 0.0, 0.1883, 0.1437, 0.0023, 0.0608], "tm": 0.4, "tb": 0.4921}, {"e": [-0.00652, 0.01287, -0.00177, 0.01527, -0.00719, 0.00057, 0.00465], "wm": [0.0, 0.4, 0.0, 0.0, 0.0232, 0.0, 0.4, 0.1568, 0.02], "wb": [0.0965, 0.3007, 0.0099, 0.0354, 0.3339, 0.0, 0.2036, 0.0, 0.02], "tm": 0.3768, "tb": 0.1305}, {"e": [0.007, -0.00076, -0.01331, -0.00124, 0.0036, 0.00936, -0.00108], "wm": [0.166, 0.0537, 0.0, 0.0, 0.386, 0.3743, 0.0, 0.0, 0.02], "wb": [0.2048, 0.1284, 0.0, 0.0099, 0.4, 0.0421, 0.1948, 0.0, 0.02], "tm": 0.5403, "tb": 0.1152}, {"e": [-0.01779, 0.01425, -0.00427, 0.00043, 0.01923, 0.01136, 0.00633], "wm": [0.0, 0.4, 0.0, 0.0, 0.4, 0.18, 0.0, 0.0, 0.02], "wb": [0.0, 0.1353, 0.0, 0.0447, 0.4, 0.0, 0.4, 0.0, 0.02], "tm": 0.18, "tb": 0.2265}, {"e": [0.00158, 0.00256, 0.00929, -0.00515, 0.00786, 0.00636, 0.00105], "wm": [0.0, 0.0001, 0.2991, 0.0, 0.4, 0.2808, 0.0, 0.0, 0.02], "wb": [0.0314, 0.251, 0.0312, 0.0, 0.4, 0.0, 0.2664, 0.0, 0.02], "tm": 0.5799, "tb": 0.1101}, {"e": [0.00685, -0.00519, -0.00457, 0.00507, 0.00877, 0.00204, -0.00628], "wm": [0.4, 0.0, 0.0029, 0.0, 0.4, 0.1771, 0.0, 0.0, 0.02], "wb": [0.1739, 0.1153, 0.0, 0.0584, 0.4, 0.0, 0.2325, 0.0, 0.02], "tm": 0.58, "tb": 0.105}, {"e": [0.00372, -0.00188, -0.00729, -0.00722, -0.01132, -0.00196, -0.00214], "wm": [0.2289, 0.2173, 0.0, 0.0, 0.0, 0.0, 0.2406, 0.1694, 0.1437], "wb": [0.2841, 0.1384, 0.0346, 0.0, 0.0532, 0.0, 0.1087, 0.0, 0.3811], "tm": 0.5827, "tb": 0.5236}, {"e": [-0.0029, 0.00284, 0.01288, -0.00556, -0.00985, -0.01003, -0.00968], "wm": [0.0, 0.1172, 0.4, 0.0, 0.1513, 0.0, 0.0, 0.1569, 0.1746], "wb": [0.1562, 0.1597, 0.1533, 0.0, 0.1595, 0.0, 0.0, 0.0382, 0.3331], "tm": 0.6403, "tb": 0.5046}, {"e": [0.00461, 0.01119, -0.00458, -0.00682, 0.01039, 0.0072, 0.0139], "wm": [0.0, 0.3369, 0.0, 0.0, 0.4, 0.0, 0.2431, 0.0, 0.02], "wb": [0.0, 0.2502, 0.0, 0.0, 0.3298, 0.0, 0.4, 0.0, 0.02], "tm": 0.1343, "tb": 0.2264}, {"e": [-0.00475, 0.00369, 0.00864, -0.01075, 0.00062, 0.00065, -0.00661], "wm": [0.0, 0.3123, 0.1857, 0.0, 0.4, 0.0, 0.0, 0.0819, 0.02], "wb": [0.0746, 0.2348, 0.0682, 0.0, 0.4, 0.0721, 0.1304, 0.0, 0.02], "tm": 0.1965, "tb": 0.1548}, {"e": [0.00212, 0.01624, -0.00282, -0.0106, -0.02037, -0.01101, 0.00819], "wm": [0.0, 0.4, 0.0, 0.0, 0.0, 0.0, 0.4, 0.18, 0.02], "wb": [0.2106, 0.225, 0.1162, 0.0, 0.0, 0.0, 0.0, 0.0359, 0.4123], "tm": 0.4, "tb": 0.6182}, {"e": [-0.01448, 0.00095, -0.01766, -0.01829, 0.00659, 0.00078, -0.00687], "wm": [0.0, 0.4, 0.0, 0.0, 0.4, 0.1243, 0.0, 0.0557, 0.02], "wb": [0.0, 0.1706, 0.0, 0.0, 0.4, 0.1134, 0.296, 0.0, 0.02], "tm": 0.1243, "tb": 0.1912}, {"e": [-0.01459, 0.00371, 0.00076, 0.00139, 0.00166, 0.00411, 0.00036], "wm": [0.0, 0.4, 0.0, 0.0, 0.4, 0.18, 0.0, 0.0, 0.02], "wb": [0.0, 0.2488, 0.0197, 0.0104, 0.4, 0.015, 0.2861, 0.0, 0.02], "tm": 0.18, "tb": 0.1415}, {"e": [-0.00793, 0.00241, -0.01896, 0.01396, 0.00638, -0.00292, -0.00312], "wm": [0.0, 0.4, 0.0, 0.0646, 0.4, 0.0, 0.0, 0.1154, 0.02], "wb": [0.0411, 0.1347, 0.0, 0.1112, 0.4, 0.0, 0.293, 0.0, 0.02], "tm": 0.1088, "tb": 0.1859}, {"e": [0.00373, -0.01234, -0.00664, -0.00196, -0.00854, 0.00677, 0.00588], "wm": [0.1383, 0.0, 0.0, 0.0, 0.0, 0.4, 0.4, 0.0417, 0.02], "wb": [0.2606, 0.0, 0.0192, 0.0, 0.114, 0.3016, 0.2846, 0.0, 0.02], "tm": 0.8295, "tb": 0.4916}, {"e": [0.00304, -0.00268, -0.00226, 0.0072, 0.00515, -0.00064, -0.00085], "wm": [0.2005, 0.221, 0.0, 0.0, 0.4, 0.0, 0.0993, 0.0592, 0.02], "wb": [0.1271, 0.1673, 0.0, 0.0467, 0.4, 0.0, 0.239, 0.0, 0.02], "tm": 0.2005, "tb": 0.0674}, {"e": [0.02918, 0.0094, -0.00942, 0.02664, -0.0092, 0.00789, 0.00743], "wm": [0.4, 0.0625, 0.0, 0.0296, 0.0, 0.2129, 0.2472, 0.0278, 0.02], "wb": [0.4, 0.1085, 0.0, 0.0707, 0.0147, 0.2232, 0.1629, 0.0, 0.02], "tm": 0.7809, "tb": 0.5523}, {"e": [0.00115, -0.00612, -0.00027, 0.01664, -0.01103, 0.00765, 0.00946], "wm": [0.0147, 0.0, 0.0555, 0.0441, 0.0, 0.4, 0.4, 0.0657, 0.02], "wb": [0.2217, 0.035, 0.0368, 0.0228, 0.0, 0.3598, 0.3034, 0.0006, 0.02], "tm": 0.8055, "tb": 0.5706}, {"e": [0.01516, -0.01417, 0.00091, 0.00217, -0.00949, 0.01553, 0.01549], "wm": [0.18, 0.0, 0.0, 0.0, 0.0, 0.4, 0.4, 0.0, 0.02], "wb": [0.2981, 0.0, 0.0212, 0.0, 0.0, 0.2973, 0.3634, 0.0, 0.02], "tm": 0.8712, "tb": 0.6056}]}};
+(()=>{
+const $=id=>document.getElementById(id);
+/* ======================================================================
+   DATA AND LINEAR ALGEBRA
+   ====================================================================== */
+const N=8,SN=DATA.short,LNM=DATA.long,S=DATA.S,WM=DATA.wm,AQR=DATA.aqr,GOLD=DATA.gold;
+const VOL=S.map((r,i)=>Math.sqrt(r[i]));
+const T=A=>A[0].map((_,j)=>A.map(r=>r[j]));
+const MM=(A,B)=>A.map(r=>B[0].map((_,j)=>r.reduce((s,v,k)=>s+v*B[k][j],0)));
+const MV=(A,v)=>A.map(r=>r.reduce((s,x,k)=>s+x*v[k],0));
+const dot=(a,b)=>a.reduce((s,x,i)=>s+x*b[i],0);
+const add=(a,b)=>a.map((x,i)=>x+b[i]),sub=(a,b)=>a.map((x,i)=>x-b[i]),scl=(a,k)=>a.map(x=>x*k);
+const MS=(A,k)=>A.map(r=>r.map(x=>x*k)),MA=(A,B)=>A.map((r,i)=>r.map((x,j)=>x+B[i][j]));
+function INV(A){const n=A.length,M=A.map((r,i)=>[...r,...r.map((_,j)=>i===j?1:0)]);
+  for(let i=0;i<n;i++){let p=i;for(let k=i+1;k<n;k++)if(Math.abs(M[k][i])>Math.abs(M[p][i]))p=k;[M[i],M[p]]=[M[p],M[i]];
+    const d=M[i][i];for(let j=0;j<2*n;j++)M[i][j]/=d;for(let k=0;k<n;k++)if(k!==i){const f=M[k][i];for(let j=0;j<2*n;j++)M[k][j]-=f*M[i][j];}}
+  return M.map(r=>r.slice(n));}
+const sumv=a=>a.reduce((s,x)=>s+x,0);
+/* state of the sliders */
+const G={lam:2.5,gam:2.5,tau:0.05,c:0.5,vk:1,asset:0,q1:0.026,q2:0.010,c1:0.5,c2:0.5,cd:0.75,cs:0.12,te:0.01,vset:'both'};   // vk: view sd relative to the prior sd at tau = 0.05 (one-asset page)
+const PIv=()=>scl(MV(S,WM),G.lam);
+const COVM=()=>MV(S,WM);                       // covariance of each class with the market portfolio
+/* Black–Litterman posterior; confidences cs set Omega = (1-c)/c * diag(P tau Sigma P') */
+function BL(prior,P,Q,cs,tau){const TS=MS(S,tau),PT=T(P),A=MM(P,MM(TS,PT));
+  const Om=A.map((r,i)=>r.map((_,j)=>i===j?(1-cs[i])/cs[i]*A[i][i]:0));
+  const Bm=MA(A,Om),K=MM(MM(TS,PT),INV(Bm)),PPi=MV(P,prior),sur=sub(Q,PPi),mu=add(prior,MV(K,sur));
+  const M=MA(TS,MS(MM(K,MM(P,TS)),-1));return{TS,A,Om,Bm,K,PPi,sur,mu,M};}
+const P7=Array.from({length:7},(_,i)=>Array.from({length:N},(_,j)=>i===j?1:0));
+/* ---------- constrained optimizer: max mu'w - g/2 w'Sw, 0<=w<=cap, sum(w)<=1-cashMin, optional tracking error ---------- */
+const LS=(()=>{let v=S.map(()=>1);for(let k=0;k<200;k++){const u=MV(S,v),n=Math.hypot(...u);v=u.map(x=>x/n);}return dot(v,MV(S,v));})();
+function proj(v,cap,b){const cl=th=>v.map(x=>Math.min(cap,Math.max(0,x-th)));let w=cl(0);if(sumv(w)<=b)return w;
+  let lo=0,hi=Math.max(...v);for(let k=0;k<60;k++){const m=(lo+hi)/2;sumv(cl(m))>b?lo=m:hi=m;}return cl(hi);}
+function qp(mu,g,kap,wref,cap,b){const L=(g+2*kap)*LS;let w=proj(mu.map(()=>1/N),cap,b),y=w.slice(),t=1;
+  for(let it=0;it<6000;it++){const Sy=MV(S,y),Sd=kap?MV(S,sub(y,wref)):null;
+    const wn=proj(y.map((x,i)=>x+(mu[i]-g*Sy[i]-(kap?2*kap*Sd[i]:0))/L),cap,b),tn=(1+Math.sqrt(1+4*t*t))/2;
+    const dmax=Math.max(...wn.map((x,i)=>Math.abs(x-w[i])));y=wn.map((x,i)=>x+(t-1)/tn*(x-w[i]));w=wn;t=tn;if(dmax<1e-10&&it>50)break;}
+  return w;}
+const teOf=(w,r)=>{const d=sub(w,r);return Math.sqrt(Math.max(0,dot(d,MV(S,d))));};
+const OPTC={};
+function optimize(mu,g,o={}){const key=mu.map(x=>x.toFixed(7)).join()+'|'+g+'|'+(o.te??'')+'|'+(o.wref?o.wref.map(x=>x.toFixed(5)).join():'');if(OPTC[key])return OPTC[key];
+  const cap=o.cap??0.4,b=1-(o.cashMin??0.02);let w=qp(mu,g,0,null,cap,b);
+  if(o.te!=null&&teOf(w,o.wref)>o.te){let lo=0,hi=1;while(teOf(qp(mu,g,hi,o.wref,cap,b),o.wref)>o.te&&hi<1e6)hi*=4;
+    for(let k=0;k<36;k++){const m=(lo+hi)/2;teOf(qp(mu,g,m,o.wref,cap,b),o.wref)>o.te?lo=m:hi=m;}w=qp(mu,g,hi,o.wref,cap,b);}
+  return OPTC[key]=w;}
+/* ======================================================================
+   FORMATTING AND DRAWING HELPERS
+   ====================================================================== */
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const tex=s=>{try{return katex.renderToString(s,{output:'mathml',throwOnError:false});}catch(e){return s;}};
+const ulC=a=>`<ul>${a.filter(Boolean).map(x=>`<li>${x}</li>`).join('')}</ul>`;
+const p2=v=>(v<0?'−':'')+Math.abs(v*100).toFixed(2)+'%';
+const p1=v=>(v<0?'−':'')+Math.abs(v*100).toFixed(1)+'%';
+const p0=v=>(Math.round(v*100)===0?'0':(v<0?'−':'')+Math.abs(v*100).toFixed(0))+'%';
+const n2=v=>(v<0?'−':'')+Math.abs(v).toFixed(2);
+function prep(cv){const dpr=window.devicePixelRatio||1,w=cv.clientWidth,h=cv.clientHeight;cv.width=Math.round(w*dpr);cv.height=Math.round(h*dpr);const c=cv.getContext('2d');c.setTransform(dpr,0,0,dpr,0,0);return{c,w,h};}
+function nice(a,b,n){const s0=(b-a)/n,m=Math.pow(10,Math.floor(Math.log10(s0))),f=s0/m,s=(f<1.5?1:f<3?2:f<7?5:10)*m,o=[];for(let v=Math.ceil(a/s-1e-9)*s;v<=b+1e-9;v+=s)o.push(+v.toFixed(10));return o;}
+const MONO='13px "IBM Plex Mono", ui-monospace, monospace',SANS='13px "IBM Plex Sans", system-ui, sans-serif',BOLD='600 14px "IBM Plex Mono", monospace';
+function hgrid(c,Y,yt,yf,l,r,col){c.font=MONO;c.lineWidth=1;for(const v of yt){const y=Math.round(Y(v))+.5;c.strokeStyle=col.rule;c.beginPath();c.moveTo(l,y);c.lineTo(r,y);c.stroke();c.fillStyle=col.mut;c.textAlign='right';c.textBaseline='middle';c.fillText(yf(v),l-8,y);}}
+const txt=(c,s,x,y,clr,al,bl,f)=>{c.fillStyle=clr;c.font=f||BOLD;c.textAlign=al||'left';c.textBaseline=bl||'middle';c.fillText(s,x,y);};
+const backTxt=(c,s,x,y,clr,al,bl,f,col)=>{c.font=f||BOLD;const tw=c.measureText(s).width,x0=al==='right'?x-tw:al==='center'?x-tw/2:x;c.fillStyle=col.surf;c.globalAlpha=.9;c.fillRect(x0-4,y-11,tw+8,22);c.globalAlpha=1;txt(c,s,x,y,clr,al,bl,f);};
+const COL=()=>({ink:css('--ink'),mut:css('--muted'),rule:css('--rule'),soft:css('--soft'),surf:css('--surface'),exp:css('--exp'),real:css('--real'),today:css('--today'),fc:css('--fc'),link:css('--link')});
+/* colours: equilibrium = ink/grey, view = amber, posterior = blue */
+const CEQ='--muted',CVW='--real',CPO='--exp';
+
+/* ======================================================================
+   PART A: FROM SESSIONS 2 AND 4 TO EQUILIBRIUM
+   ====================================================================== */
+const NM9=[...SN,'Cash'];
+function drawA1(c,w,h,col){const l=C.line,Pi=PIv(),cm=COVM(),L=64,R=w-20,cw=(R-L)/9;
+  const panel=(top,bot,vals,lo,hi,clr,lab,fmt,show)=>{const Y=v=>bot-(v-lo)/(hi-lo)*(bot-top);
+    hgrid(c,Y,nice(lo,hi,4),v=>(v*100).toFixed(0)+'%',L,R,col);txt(c,lab,L,top-16,col.ink,'left','middle','600 15px "IBM Plex Sans", sans-serif');
+    c.strokeStyle=col.mut;c.beginPath();c.moveTo(L,Y(0));c.lineTo(R,Y(0));c.stroke();
+    vals.forEach((v,i)=>{const x=L+i*cw+cw*.18,bw=cw*.64,hi1=i===0&&l>=2;c.fillStyle=clr;c.globalAlpha=hi1||l<2?0.9:0.35;const y0=Y(Math.max(0,v)),y1=Y(Math.min(0,v));c.fillRect(x,y0,bw,Math.max(1,y1-y0));c.globalAlpha=1;
+      if(show)txt(c,fmt(v),x+bw/2,v>=0?y0-10:y1+10,hi1?col.fc:col.ink,'center','middle',MONO);
+      txt(c,NM9[i],x+bw/2,bot+14,col.mut,'center','middle',SANS);});return Y;};
+  const mid=Math.round(h*.5);
+  panel(40,mid-40,[...WM,0],0,.45,col.ink,'Market weights, w_mkt',v=>(v*100).toFixed(0),true);
+  if(l>=1){const lo=Math.min(-0.01,Math.min(...Pi)*1.2),hi=Math.max(0.045,Math.max(...Pi)*1.2);
+    panel(mid+40,h-40,[...Pi,0],lo,hi,css(CPO),`Equilibrium returns Π (λ = ${G.lam.toFixed(1)})`,v=>(v*100).toFixed(1),true);}
+  if(l>=2){const x=L+cw*.5;backTxt(c,`cov(US, market) = ${cm[0].toFixed(4)} → Π_US = ${G.lam.toFixed(1)} × ${cm[0].toFixed(4)} = ${p2(Pi[0])}`,R,mid+24,col.fc,'right','middle',BOLD,col);}
+  const vm=Math.sqrt(dot(WM,MV(S,WM))),pm=dot(WM,Pi);
+  if(l>=3)backTxt(c,`market portfolio: volatility ${p1(vm)}, premium ${p1(pm)}`,R,52,col.fc,'right','middle',BOLD,col);}
+const POOL=()=>{const g=G.gam,Pi=PIv();return{eq:optimize(Pi,g),gold:optimize(GOLD,g),aqr:optimize([...AQR,0],g)};};
+function drawA2(c,w,h,col){const l=C.line,P=POOL(),L=110,R=w-30,T0=30,B0=h-40,rh=(B0-T0)/9;
+  const ser=[['eq','Equilibrium Π',css(CEQ)],['gold','Goldman CMAs (Session 2)',css('--today')],['aqr','AQR CMAs (Session 3)',css(CVW)]].filter((_,k)=>k<l);
+  const X=v=>L+v/0.45*(R-L);
+  for(const v of [0,.1,.2,.3,.4]){const x=Math.round(X(v))+.5;c.strokeStyle=col.rule;c.beginPath();c.moveTo(x,T0);c.lineTo(x,B0);c.stroke();txt(c,(v*100)+'%',x,B0+14,col.mut,'center','middle',MONO);}
+  c.strokeStyle=col.fc;c.setLineDash([5,4]);c.beginPath();c.moveTo(X(.4),T0);c.lineTo(X(.4),B0);c.stroke();c.setLineDash([]);txt(c,'40% cap',X(.4)+4,T0-12,col.fc,'left','middle',SANS);
+  NM9.forEach((nm,i)=>{const y=T0+i*rh;txt(c,nm,L-12,y+rh/2,col.ink,'right','middle',SANS);
+    const bh=Math.min(16,(rh-8)/Math.max(1,ser.length));ser.forEach(([k,lab,clr],j)=>{const wv=[...P[k],1-sumv(P[k])][i],yy=y+rh/2-ser.length*bh/2+j*bh;
+      c.fillStyle=clr;c.fillRect(L,yy+1,Math.max(0,X(wv)-L),bh-2);if(wv>0.005)txt(c,(wv*100).toFixed(0),X(wv)+4,yy+bh/2,clr,'left','middle',MONO);});});}
+/* ======================================================================
+   PART B: TWO ESTIMATES OF EACH EXPECTED RETURN
+   ====================================================================== */
+function one(i){const Pi=PIv()[i],sp=Math.sqrt(G.tau)*VOL[i],Q=AQR[i]??null,sv=G.vk*Math.sqrt(0.05)*VOL[i];   // the view's uncertainty is its own: tau does not change it
+  const pp=1/(sp*sp),pv=1/(sv*sv),s=1/Math.sqrt(pp+pv),cc=pv/(pp+pv),mu=Pi+cc*(Q-Pi);return{Pi,sp,Q,sv,pp,pv,s,cc,mu};}
+function drawB2(c,w,h,col){const l=C.line,i=G.asset,o=one(i),L=50,R=w-24,T0=40,B0=h-150;
+  const rng=i===0?[-0.07,0.13]:[-0.02,0.035],X=v=>L+(v-rng[0])/(rng[1]-rng[0])*(R-L);
+  const pdf=(x,m,s)=>Math.exp(-.5*((x-m)/s)**2)/(s*Math.sqrt(2*Math.PI));
+  const curves=[[o.Pi,o.sp,css(CEQ),'equilibrium (prior)',0],[o.Q,o.sv,css(CVW),'view',1],[o.mu,o.s,css(CPO),'posterior',2]].filter(k=>k[4]<=Math.min(l,2));
+  const spRef=Math.sqrt(0.05)*VOL[i],ymax=pdf(0,0,spRef)/0.32,Y=v=>B0-Math.min(v,ymax*1.02)/ymax*(B0-T0); // fixed scale: the prior's height does not change with c
+  const xt=nice(rng[0],rng[1],8);for(const v of xt){const x=Math.round(X(v))+.5;c.strokeStyle=col.rule;c.beginPath();c.moveTo(x,T0);c.lineTo(x,B0);c.stroke();txt(c,(v*100).toFixed(i===0?0:1)+'%',x,B0+14,col.mut,'center','middle',MONO);}
+  txt(c,`${LNM[i]}: expected excess return`,R,B0+34,col.mut,'right','middle',SANS);
+  c.strokeStyle=col.mut;c.beginPath();c.moveTo(L,B0+.5);c.lineTo(R,B0+.5);c.stroke();
+  curves.forEach(([m,s,clr,lab,k])=>{c.beginPath();for(let p=0;p<=300;p++){const x=rng[0]+(rng[1]-rng[0])*p/300,y=Y(pdf(x,m,s));p?c.lineTo(X(x),y):c.moveTo(X(x),y);}
+    c.lineTo(R,B0);c.lineTo(L,B0);c.closePath();c.fillStyle=clr;c.globalAlpha=k===2?.18:.10;c.fill();c.globalAlpha=1;
+    c.beginPath();for(let p=0;p<=300;p++){const x=rng[0]+(rng[1]-rng[0])*p/300,y=Y(pdf(x,m,s));p?c.lineTo(X(x),y):c.moveTo(X(x),y);}c.strokeStyle=clr;c.lineWidth=k===2?3.2:2.2;c.stroke();
+    if(k<2||l>=3){c.setLineDash([4,4]);c.lineWidth=1.5;c.beginPath();c.moveTo(X(m),Y(pdf(m,m,s)));c.lineTo(X(m),B0);c.stroke();c.setLineDash([]);}});
+  // labels at the peaks
+  const lab=[[o.Pi,o.sp,css(CEQ),`Π ${p2(o.Pi)}`,0],[o.Q,o.sv,css(CVW),`Q ${p2(o.Q)}`,1],[o.mu,o.s,css(CPO),`μ_BL ${p2(o.mu)}`,3]].filter(k=>k[4]<=l);
+  lab.forEach(([m,s,clr,t],j)=>{const al=j===0?(o.Q<o.Pi?'left':'right'):j===1?(o.Q<o.Pi?'right':'left'):'center';const dx=al==='left'?10:al==='right'?-10:0;backTxt(c,t,X(m)+dx,Math.max(T0+10,Y(pdf(m,m,s))-14),clr,al,'middle','600 16px "IBM Plex Mono", monospace',col);});
+  // sd labels
+  if(l>=1){txt(c,`sd: prior ${(o.sp*100).toFixed(1)} · view ${(o.sv*100).toFixed(1)}${l>=2?` · posterior ${(o.s*100).toFixed(1)}`:''} points`,L,T0-18,col.mut,'left','middle',MONO);}
+  // precision bar
+  if(l>=2){const by=h-78,bw=R-L,sh=o.pp/(o.pp+o.pv);txt(c,'Precision = 1 / variance: who gets how much weight',L,by-20,col.ink,'left','middle','600 14px "IBM Plex Sans", sans-serif');
+    c.fillStyle=css(CEQ);c.globalAlpha=.85;c.fillRect(L,by,bw*sh,30);c.fillStyle=css(CVW);c.fillRect(L+bw*sh,by,bw*(1-sh),30);c.globalAlpha=1;
+    txt(c,`equilibrium ${(sh*100).toFixed(0)}%`,L+8,by+15,col.surf,'left','middle',BOLD);txt(c,`view ${((1-sh)*100).toFixed(0)}%  = c`,R-8,by+15,col.surf,'right','middle',BOLD);
+    txt(c,`1/${(o.sp*100).toFixed(1)}² = ${(o.pp/1e4).toFixed(3)}`,L,by+46,css(CEQ),'left','middle',MONO);txt(c,`1/${(o.sv*100).toFixed(1)}² = ${(o.pv/1e4).toFixed(3)}`,R,by+46,css(CVW),'right','middle',MONO);}}
+function drawB3(c,w,h,col){const l=C.line,Pi=PIv(),r=BL(Pi,P7,AQR,P7.map(()=>G.c),G.tau),L=60,R=w-20,T0=40,B0=h-60,cw=(R-L)/N;
+  const lo=-0.06,hi=0.12,Y=v=>B0-(Math.max(lo,Math.min(hi,v))-lo)/(hi-lo)*(B0-T0);
+  hgrid(c,Y,nice(lo,hi,6),v=>(v*100).toFixed(0)+'%',L,R,col);c.strokeStyle=col.mut;c.beginPath();c.moveTo(L,Y(0));c.lineTo(R,Y(0));c.stroke();
+  txt(c,'expected excess return, ± 1 sd',L,T0-20,col.mut,'left','middle',SANS);
+  const eb=(x,m,s,clr,lw)=>{c.strokeStyle=clr;c.fillStyle=clr;c.lineWidth=lw;c.beginPath();c.moveTo(x,Y(m-s));c.lineTo(x,Y(m+s));c.stroke();c.beginPath();c.moveTo(x-6,Y(m-s));c.lineTo(x+6,Y(m-s));c.moveTo(x-6,Y(m+s));c.lineTo(x+6,Y(m+s));c.stroke();c.beginPath();c.arc(x,Y(m),6,0,7);c.fill();};
+  for(let i=0;i<N;i++){const x=L+i*cw+cw/2,sp=Math.sqrt(r.TS[i][i]);txt(c,SN[i],x,B0+18,col.ink,'center','middle',SANS);
+    eb(x-cw*.24,Pi[i],sp,css(CEQ),2.5);
+    if(l>=1){if(i<7){const sv=Math.sqrt(r.Om[i][i]);eb(x,AQR[i],sv,css(CVW),2.5);}else txt(c,'no view',x,Y(-0.045),col.mut,'center','middle',SANS);}
+    if(l>=2){eb(x+cw*.24,r.mu[i],Math.sqrt(r.M[i][i]),css(CPO),3.2);if([0,4,7].includes(i))backTxt(c,p2(r.mu[i]),x+cw*.24,Y(r.mu[i]+Math.sqrt(r.M[i][i]))-14,css(CPO),'center','middle',BOLD,col);}}}
+
+/* ======================================================================
+   PART C: THE POSTERIOR, STEP BY STEP (three-class block)
+   ====================================================================== */
+const I3=[0,1,4],L3=['US eq','Dev eq','IG'],VL=['view 1','view 2'];
+const VC1='--real',VC2='--today';
+function blk(){const S3=I3.map(i=>I3.map(j=>S[i][j])),PiA=PIv(),Pi=I3.map(i=>PiA[i]),P=[[1,0,0],[-1,1,0]],Q=[G.q1,G.q2],cs=[G.c1,G.c2],tau=G.tau;
+  const TS=MS(S3,tau),PT=T(P),A=MM(P,MM(TS,PT)),Om=A.map((r,i)=>r.map((_,j)=>i===j?(1-cs[i])/cs[i]*A[i][i]:0)),B=MA(A,Om),Bi=INV(B),K=MM(MM(TS,PT),Bi);
+  const PPi=MV(P,Pi),sur=sub(Q,PPi),con=K.map(r=>r.map((k,j)=>k*sur[j])),mu=add(Pi,MV(K,sur)),Lam=scl(MV(Bi,sur),tau/G.lam),dw=MV(PT,Lam);
+  return{S3,Pi,P,Q,cs,TS,A,Om,B,K,PPi,sur,con,mu,Lam,dw,tau};}
+/* a matrix drawn as a labelled grid; colour shows sign and size */
+function mtx(name,rows,cols,M,fmt,o={}){const flat=M.flat().map(Math.abs),mx=o.max||Math.max(...flat,1e-12);
+  const cell=(v,i,j)=>{const a=Math.min(1,Math.abs(v)/mx),clr=v>=0?'var(--exp)':'var(--fc)',hl=o.hi&&o.hi(i,j);
+    return `<td style="background:color-mix(in srgb,${clr} ${Math.round(a*38)}%,var(--surface));${hl?'outline:3px solid var(--today);outline-offset:-3px':''}">${fmt(v)}</td>`;};
+  return `<div class="mxw"><div class="mxn">${name}${o.unit?`<span>${o.unit}</span>`:''}</div><table class="mxt"><thead><tr><th></th>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>
+    ${M.map((r,i)=>`<tr><th>${rows[i]}</th>${r.map((v,j)=>cell(v,i,j)).join('')}</tr>`).join('')}</tbody></table>${o.cap?`<div class="mxc">${o.cap}</div>`:''}</div>`;}
+const e4=v=>(v<0?'−':'')+Math.abs(v*1e4).toFixed(2),pc=v=>(v<0?'−':'')+Math.abs(v*100).toFixed(2)+'%',k3=v=>(v<0?'−':'')+Math.abs(v).toFixed(3),one0=v=>(v<0?'−':'')+Math.abs(v).toFixed(0);
+const col1=v=>v.map(x=>[x]);
+/* signed horizontal bar from a centre line */
+function sbar(v,scale,clr,lab){const w=Math.min(38,Math.abs(v)/scale*38);return `<div class="sbar"><div class="ax"></div><div class="seg" style="${v>=0?`left:50%`:`right:50%`};width:${w}%;background:${clr}"></div><span class="sv" style="${v>=0?`left:calc(50% + ${w}% + 6px)`:`right:calc(50% + ${w}% + 6px)`}">${lab}</span></div>`;}
+function figC1(l){const b=blk();let h=`<div class="mxrow">`;
+  h+=mtx('P',['view 1','view 2'].slice(0,Math.max(1,Math.min(2,l+1))),L3,b.P.slice(0,Math.max(1,Math.min(2,l+1))),v=>v===0?'0':(v>0?'+':'−')+Math.abs(v),{max:1,cap:'rows: view portfolios · columns: assets'});
+  h+=mtx('Q',['view 1','view 2'].slice(0,Math.max(1,Math.min(2,l+1))),['forecast'],col1(b.Q).slice(0,Math.max(1,Math.min(2,l+1))),pc,{max:.03});
+  if(l>=3)h+=mtx('Ω',VL,VL,b.Om,e4,{unit:'× 10⁻⁴',max:Math.max(...b.Om.flat()),cap:`view errors: ${(Math.sqrt(b.Om[0][0])*100).toFixed(1)} and ${(Math.sqrt(b.Om[1][1])*100).toFixed(1)} points`});
+  h+='</div>';
+  h+=`<div class="vport"><div class="mxn">Each view is a portfolio</div>${[0,1].filter(k=>k<=l).map(k=>`<div class="vp"><b style="color:var(${k?VC2:VC1})">${VL[k]}</b><span>${k?`buy developed ex-US, sell US equity: a long–short bet on the gap of ${pc(G.q2)}`:`buy US equity: a bet that it earns ${pc(G.q1)} over cash`}</span></div>`).join('')}</div>`;
+  return h;}
+function figC2(l){const b=blk();let h=`<div class="mxrow">`;
+  h+=mtx('τΣ',L3,L3,b.TS,e4,{unit:'× 10⁻⁴',hi:l===1?(i,j)=>i<2&&j<2:null,cap:'diagonal: τ × variance · off-diagonal: τ × covariance'});
+  if(l>=1){h+=mtx('PτΣPᵀ',VL,VL,b.A,e4,{unit:'× 10⁻⁴',max:Math.max(...b.B.flat()),hi:(i,j)=>i===1&&j===1});h+=mtx('+ Ω = ',VL,VL,b.B,e4,{unit:'× 10⁻⁴',max:Math.max(...b.B.flat())});}
+  h+='</div>';
+  if(l>=1)h+=`<div class="byhand"><b>By hand, view 2 (Dev − US):</b> variance of the portfolio = τσ²<sub>Dev</sub> + τσ²<sub>US</sub> − 2 τ cov = ${e4(b.TS[1][1])} + ${e4(b.TS[0][0])} − 2 × ${e4(b.TS[0][1])} = <b>${e4(b.A[1][1])}</b> (× 10⁻⁴), a standard deviation of ${(Math.sqrt(b.A[1][1])*100).toFixed(1)} points. The long–short view is precise because the two equities move together.</div>`;
+  if(l>=2){h+=`<div class="mxrow">${mtx('PΠ',VL,['equilibrium'],col1(b.PPi),pc,{max:.04})}${mtx('Q',VL,['views'],col1(b.Q),pc,{max:.04})}${mtx('Q − PΠ',VL,['surprise'],col1(b.sur),pc,{max:.01,cap:'below equilibrium (red), above (blue)'})}</div>`;}
+  return h;}
+function figC3(l){const b=blk();let h=`<div class="mxrow">${mtx('K',L3,VL,b.K,k3,{max:1,cap:'rows: assets · columns: views. How much each asset learns from each view.'})}`;
+  if(l>=1)h+=mtx('Q − PΠ',VL,['surprise'],col1(b.sur),pc,{max:.01});h+='</div>';
+  if(l>=1){const sc=Math.max(0.004,...b.con.flat().map(Math.abs));
+    h+=`<table class="wf"><thead><tr><th></th><th>Π</th><th style="color:var(${VC1})">+ from view 1</th><th style="color:var(${VC2})">+ from view 2</th><th>= μ<sub>BL</sub></th></tr></thead><tbody>`+
+      L3.map((a,i)=>`<tr><th>${a}</th><td>${pc(b.Pi[i])}</td><td>${sbar(b.con[i][0],sc,`var(${VC1})`,pc(b.con[i][0]))}<div class="fm">${k3(b.K[i][0])} × ${pc(b.sur[0])}</div></td><td>${sbar(b.con[i][1],sc,`var(${VC2})`,pc(b.con[i][1]))}<div class="fm">${k3(b.K[i][1])} × ${pc(b.sur[1])}</div></td><td><b>${pc(b.mu[i])}</b></td></tr>`).join('')+`</tbody></table>`;}
+  if(l>=2)h+=`<div class="byhand"><b>One asset, one view:</b> K = τσ² / (τσ² + ω) = c, the precision share of part B. Here US learns ${k3(b.K[0][0])} from view 1, close to c₁ = ${G.c1.toFixed(2)}; view 2 and the correlations account for the rest.</div>`;
+  return h;}
+function figC4(l){const b=blk(),dmu=sub(b.mu,b.Pi);let h='';
+  const sc=Math.max(0.004,...dmu.map(Math.abs),...b.con.flat().map(Math.abs));
+  h+=`<div class="mxn">Change in expected return, μ<sub>BL</sub> − Π, and where it comes from</div><table class="wf"><thead><tr><th></th><th style="color:var(${VC1})">from view 1</th><th style="color:var(${VC2})">from view 2</th><th>total</th></tr></thead><tbody>`+
+    L3.map((a,i)=>`<tr><th>${a}</th><td>${sbar(b.con[i][0],sc,`var(${VC1})`,pc(b.con[i][0]))}</td><td>${sbar(b.con[i][1],sc,`var(${VC2})`,pc(b.con[i][1]))}</td><td><b>${(dmu[i]>=0?'+':'')+pc(dmu[i])}</b></td></tr>`).join('')+`</tbody></table>`;
+  h+=`<div class="byhand">Gap developed minus US: ${pc(b.Pi[1]-b.Pi[0])} in equilibrium → <b>${pc(b.mu[1]-b.mu[0])}</b> in the posterior, part of the way to the view’s ${pc(G.q2)}.</div>`;
+  if(l>=1){const s2=Math.max(0.05,...b.dw.map(Math.abs),...b.Lam.map(Math.abs));
+    h+=`<div class="mxn">Change in weights, Δw = Pᵀ Λ, with Λ = (${k3(b.Lam[0])}, ${k3(b.Lam[1])})</div><table class="wf"><thead><tr><th></th><th style="color:var(${VC1})">Λ₁ × view 1 portfolio</th><th style="color:var(${VC2})">Λ₂ × view 2 portfolio</th><th>Δw</th></tr></thead><tbody>`+
+      L3.map((a,i)=>{const c1=b.Lam[0]*b.P[0][i],c2=b.Lam[1]*b.P[1][i];return `<tr><th>${a}</th><td>${sbar(c1,s2,`var(${VC1})`,one0(c1*100)+' pts')}</td><td>${sbar(c2,s2,`var(${VC2})`,one0(c2*100)+' pts')}</td><td><b>${(b.dw[i]>=0?'+':'')+one0(b.dw[i]*100)} pts</b></td></tr>`;}).join('')+`</tbody></table>`;}
+  return h;}
+const CSTEPS=[
+ {title:'Views as P, Q and Ω',fig:'html',html:figC1,ctrls:()=>['q1','q2'],figT:()=>'Three classes, two views, written as small grids',
+  note:'Three of the nine Case 1 classes with the same Σ and Π: US equity, developed ex-US equity, IG bonds. Views from AQR (2026).',
+  lines:[{hd:'View 1: absolute',t:'\\text{US equity earns } q_1',a:()=>`p₁ = (1, 0, 0)<br>q₁ = ${pc(G.q1)}`},
+         {hd:'View 2: relative',t:'\\text{Dev. ex-US beats US by } q_2',a:()=>`p₂ = (−1, 1, 0)<br>q₂ = ${pc(G.q2)}`},
+         {hd:'Stack the views',t:'P = \\begin{pmatrix} 1 & 0 & 0\\\\ -1 & 1 & 0 \\end{pmatrix},\\quad Q = \\begin{pmatrix} q_1\\\\ q_2 \\end{pmatrix}',a:()=>'rows: views<br>columns: assets'},
+         {hd:'How sure: Ω from confidence c',t:'\\omega_k = \\dfrac{1-c_k}{c_k}\\, p_k\\,\\tau\\Sigma\\, p_k^{\\top}',a:()=>{const b=blk();return `c = ${G.c1.toFixed(2)}, ${G.c2.toFixed(2)}<br>ω = ${e4(b.Om[0][0])}, ${e4(b.Om[1][1])} (×10⁻⁴)`;}}],
+  text:l=>{const b=blk();return [[`A view is a <b>portfolio with a forecast</b>.`,`View 1, absolute: US equity will earn ${pc(G.q1)} over cash (AQR’s CMA). Its portfolio: +1 in US equity, nothing else.`],
+    [`View 2, relative: developed ex-US equity will beat US equity by ${pc(G.q2)} (AQR: 3.6% against 2.6%).`,`Its portfolio is long–short: +1 developed, −1 US. It says nothing about the level of returns, only the gap.`],
+    [`Stack the view portfolios as the rows of P and their forecasts in Q. Each column is an asset.`,`No view on IG bonds: its column is all zeros.`],
+    [`Ω holds each view’s error variance on its diagonal. From a confidence c: ω = (1 − c)/c × the variance of the view portfolio under τΣ.`,`c = 0.5: each view is as precise as equilibrium for the same portfolio. The relative view is more precise (${(Math.sqrt(b.Om[1][1])*100).toFixed(1)} against ${(Math.sqrt(b.Om[0][0])*100).toFixed(1)} points) because the two equities move together.`]][l];}},
+ {title:'The recipe, steps 1–3: uncertainty and the surprise',fig:'html',html:figC2,ctrls:()=>['c1','c2'],figT:()=>'Three classes: the inputs of the recipe',
+  note:'Numbers × 10⁻⁴ are variances of annual expected returns: 11.54 × 10⁻⁴ is a standard deviation of √0.001154 = 3.4 points.',
+  lines:[{hd:'Step 1: uncertainty of equilibrium',t:'\\tau\\Sigma',a:()=>{const b=blk();return `US: ${e4(b.TS[0][0])} × 10⁻⁴<br>sd ${(Math.sqrt(b.TS[0][0])*100).toFixed(1)} points`;}},
+         {hd:'Step 2: uncertainty of each view',t:'P\\tau\\Sigma P^{\\top} + \\Omega',a:()=>{const b=blk();return `view sd ${(Math.sqrt(b.A[0][0])*100).toFixed(1)} and ${(Math.sqrt(b.A[1][1])*100).toFixed(1)} points<br>before Ω`;}},
+         {hd:'Step 3: the surprise',t:'Q - P\\Pi',a:()=>{const b=blk();return `${pc(b.Q[0])} − ${pc(b.PPi[0])} = ${pc(b.sur[0])}<br>${pc(b.Q[1])} − ${pc(b.PPi[1])} = ${pc(b.sur[1])}`;}}],
+  text:l=>{const b=blk();return [[`Step 1: how uncertain is equilibrium? τΣ: each cell is τ × a covariance, in units of 10⁻⁴.`,`The diagonal is each asset’s own uncertainty: US ${e4(b.TS[0][0])}, a standard deviation of ${(Math.sqrt(b.TS[0][0])*100).toFixed(1)} points. US and developed equity are tightly linked (correlation ${(S[0][1]/VOL[0]/VOL[1]).toFixed(2)}).`],
+    [`Step 2: how uncertain is each view? PτΣPᵀ is what equilibrium uncertainty says about each view portfolio.`,`By hand for view 2 (developed minus US): ${e4(b.TS[1][1])} + ${e4(b.TS[0][0])} − 2 × ${e4(b.TS[0][1])} = ${e4(b.A[1][1])}.`,`Then add the views’ own errors Ω. With c = 0.5 this doubles the diagonal.`],
+    [`Step 3: the surprise. Equilibrium says US earns ${pc(b.PPi[0])} and developed beats US by ${pc(b.PPi[1])}.`,`The views say ${pc(b.Q[0])} and ${pc(b.Q[1])}: a surprise of <b>${pc(b.sur[0])}</b> and <b>${(b.sur[1]>=0?'+':'')+pc(b.sur[1])}</b>. Only surprises move the posterior.`]][l];}},
+ {title:'The recipe, steps 4–5: who learns what',fig:'html',html:figC3,ctrls:()=>['c1','c2','q1','q2'],figT:()=>'The adjustment matrix K and the posterior, asset by asset',
+  lines:[{hd:'Step 4: how much each asset learns',t:'K = \\tau\\Sigma P^{\\top}\\big(P\\tau\\Sigma P^{\\top} + \\Omega\\big)^{-1}',a:()=>'rows: assets<br>columns: views'},
+         {hd:'Step 5: the posterior',t:'\\mu_{BL} = \\Pi + K\\,(Q - P\\Pi)',a:()=>{const b=blk();return `US ${pc(b.mu[0])}, Dev ${pc(b.mu[1])}<br>IG ${pc(b.mu[2])}`;}},
+         {t:'\\text{one asset, one view: } K = c',a:()=>'back to part B'}],
+  text:l=>{const b=blk();return [[`Step 4: K tells how much each asset learns from each view. Rows: assets. Columns: views.`,`US learns ${k3(b.K[0][0])} from view 1, close to its confidence c = ${G.c1.toFixed(2)}. Developed equity learns ${k3(b.K[1][0])} from view 1, through the correlation, and ${k3(b.K[1][1])} from view 2.`,`IG bonds barely learn anything: their correlations with equity are small.`],
+    [`Step 5: posterior = equilibrium + K × surprise. Each row of the table adds up.`,`US: ${pc(b.Pi[0])} + ${k3(b.K[0][0])} × (${pc(b.sur[0])}) ${b.K[0][1]<0?'−':'+'} ${k3(Math.abs(b.K[0][1]))} × ${pc(b.sur[1])} = <b>${pc(b.mu[0])}</b>.`],
+    [`With one asset and one view, K is just c, and step 5 is the precision-weighted average of part B.`,`Move the sliders: change a forecast or its confidence and watch each contribution change.`]][l];}},
+ {title:'Reading the result: tilts only along the views',fig:'html',html:figC4,ctrls:()=>['c1','c2','q1','q2'],figT:()=>'What moved, and why',
+  note:'Δw: unconstrained, with the fund’s risk aversion equal to the market’s (γ = λ). The constrained nine-class portfolios follow in part D.',
+  lines:[{hd:'What moved',t:'\\mu_{BL} - \\Pi',a:()=>{const b=blk(),d=sub(b.mu,b.Pi);return `US ${pc(d[0])}, Dev ${pc(d[1])}<br>IG ${pc(d[2])}`;}},
+         {hd:'Weights, γ = λ, no constraints',t:'\\Delta w = \\tfrac{1}{\\lambda}\\,\\Sigma^{-1}(\\mu_{BL}-\\Pi) = P^{\\top}\\Lambda',a:()=>{const b=blk();return `Λ = (${k3(b.Lam[0])}, ${k3(b.Lam[1])})`;}},
+         {t:'\\text{a multiple of each view portfolio}',a:()=>{const b=blk();return `US ${one0(b.dw[0]*100)}, Dev ${(b.dw[1]>=0?'+':'')+one0(b.dw[1]*100)}<br>IG ${one0(b.dw[2]*100)} points`;}}],
+  text:l=>{const b=blk(),d=sub(b.mu,b.Pi);return [[`US equity falls by ${pc(Math.abs(d[0]))}: view 1 pulls it about halfway toward ${pc(G.q1)}; view 2 adds a little.`,`Developed ex-US moves ${pc(d[1])}: view 1 drags it down through the correlation, view 2 lifts it relative to US. The two cancel.`,`IG bonds have no view and move only through small correlations.`],
+    [`The weights follow the same logic. Without constraints and with γ = λ, the change from the equilibrium portfolio is a multiple Λ of each view portfolio (He and Litterman, 1999).`],
+    [`US ${one0(b.dw[0]*100)} points, developed ${(b.dw[1]>=0?'+':'')+one0(b.dw[1]*100)}, IG ${one0(b.dw[2]*100)}: <b>Black–Litterman tilts the portfolio only along the views.</b>`,`The full nine-class problem with all seven AQR views gives US ${pc(BL(PIv(),P7,AQR,P7.map(()=>0.5),0.05).mu[0])}: the other views add information. Part D turns it into a strategic portfolio.`]][l];}}];
+
+/* ======================================================================
+   PART D: A STRATEGIC PORTFOLIO WITH BLACK–LITTERMAN
+   ====================================================================== */
+const W9=w=>[...w,1-sumv(w)];
+const blSAA=c=>BL(PIv(),P7,AQR,P7.map(()=>c),G.tau).mu;
+const SAAP=()=>{const g=G.gam;return{eq:W9(optimize(PIv(),g)),mv:W9(optimize([...AQR,0],g)),bl:W9(optimize(blSAA(G.c),g))};};
+function hbars(c,w,h,col,ser,o={}){const L=110,R=w-30,T0=30,B0=h-40,rh=(B0-T0)/9,X=v=>L+v/0.45*(R-L);
+  for(const v of [0,.1,.2,.3,.4]){const x=Math.round(X(v))+.5;c.strokeStyle=col.rule;c.lineWidth=1;c.beginPath();c.moveTo(x,T0);c.lineTo(x,B0);c.stroke();txt(c,(v*100)+'%',x,B0+14,col.mut,'center','middle',MONO);}
+  c.strokeStyle=col.fc;c.setLineDash([5,4]);c.beginPath();c.moveTo(X(.4),T0);c.lineTo(X(.4),B0);c.stroke();c.setLineDash([]);txt(c,'40% cap',X(.4)+4,T0-12,col.fc,'left','middle',SANS);
+  NM9.forEach((nm,i)=>{const y=T0+i*rh;txt(c,nm,L-12,y+rh/2,col.ink,'right','middle',SANS);
+    const bh=Math.min(16,(rh-8)/Math.max(1,ser.length));ser.forEach(([wv9,lab,clr],j)=>{const wv=wv9[i],yy=y+rh/2-ser.length*bh/2+j*bh;
+      c.fillStyle=clr;c.fillRect(L,yy+1,Math.max(0,X(Math.min(wv,.45))-L),bh-2);if(wv>0.005)txt(c,(wv*100).toFixed(0),X(Math.min(wv,.45))+4,yy+bh/2,clr,'left','middle',MONO);});});}
+function drawD1(c,w,h,col){const P=SAAP(),l=C.line;hbars(c,w,h,col,[[P.eq,'',css(CEQ)],[P.mv,'',css(CVW)],[P.bl,'',css(CPO)]].filter((_,k)=>k<=Math.min(l,2)));}
+const SWC={};
+function sweep(){const key=G.gam+'|'+G.tau;if(SWC[key])return SWC[key];const cs=[0,...Array.from({length:40},(_,k)=>0.025*(k+1))].map(x=>Math.min(x,0.995));
+  return SWC[key]=cs.map(c=>({c,w:W9(c===0?optimize(PIv(),G.gam):optimize(blSAA(c),G.gam))}));}
+const PAL=['#1f4fd1','#6f95ee','#a9c0f4','#8c6d46','#b8650f','#e3a85f','#2e8b3e','#9c2f6b','#98a3ae'];
+function drawD2(c,w,h,col){const sw=sweep(),L=64,R=w-120,T0=30,B0=h-60,X=v=>L+v*(R-L),Y=v=>B0-v*(B0-T0);
+  hgrid(c,Y,[0,.2,.4,.6,.8,1],v=>(v*100).toFixed(0)+'%',L,R,col);
+  let base=sw.map(()=>0);
+  for(let i=0;i<9;i++){c.beginPath();sw.forEach((p,k)=>{const x=X(p.c),y=Y(base[k]+p.w[i]);k?c.lineTo(x,y):c.moveTo(x,y);});
+    for(let k=sw.length-1;k>=0;k--)c.lineTo(X(sw[k].c),Y(base[k]));c.closePath();c.fillStyle=PAL[i];c.globalAlpha=.85;c.fill();c.globalAlpha=1;
+    const last=sw[sw.length-1],yb=base[base.length-1];if(last.w[i]>0.03)txt(c,NM9[i],R+8,Y(yb+last.w[i]/2),PAL[i],'left','middle','600 13px "IBM Plex Sans", sans-serif');
+    const y0=base[0];if(sw[0].w[i]>0.03)txt(c,`${NM9[i]} ${(sw[0].w[i]*100).toFixed(0)}`,X(0)+6,Y(y0+sw[0].w[i]/2),col.surf,'left','middle','600 12px "IBM Plex Sans", sans-serif');
+    base=base.map((b,k)=>b+sw[k].w[i]);}
+  for(const v of [0,.25,.5,.75,1])txt(c,v.toFixed(2),X(v),B0+14,col.mut,'center','middle',MONO);
+  txt(c,'equilibrium',X(0),B0+32,col.mut,'left','middle',SANS);txt(c,'views only',X(1),B0+32,col.mut,'right','middle',SANS);txt(c,'confidence in the AQR views, c',X(.5),B0+32,col.ink,'center','middle',SANS);
+  const m=(x,lab)=>{c.strokeStyle=col.ink;c.lineWidth=2;c.setLineDash([5,4]);c.beginPath();c.moveTo(X(x),T0-6);c.lineTo(X(x),B0);c.stroke();c.setLineDash([]);backTxt(c,lab,X(x),T0-14,col.ink,'center','middle',BOLD,col);};
+  if(C.line>=2)m(G.c,`c = ${G.c.toFixed(2)}${Math.abs(G.c-.5)<1e-9?': our SAA':''}`);}
+const ROB=DATA.rob;let RIDX=0;
+function drawD3(c,w,h,col){const l=C.line,L=150,R=w-30,T0=40,mid=Math.round(h*.40),X=v=>L+v/0.9*(R-L);
+  txt(c,'Share of the portfolio that changes (turnover), 300 draws',L,T0-20,col.ink,'left','middle','600 14px "IBM Plex Sans", sans-serif');
+  for(const v of [0,.2,.4,.6,.8]){const x=Math.round(X(v))+.5;c.strokeStyle=col.rule;c.lineWidth=1;c.beginPath();c.moveTo(x,T0);c.lineTo(x,mid);c.stroke();txt(c,(v*100)+'%',x,mid+14,col.mut,'center','middle',MONO);}
+  const strip=(arr,y,clr,lab)=>{txt(c,lab,L-12,y,clr,'right','middle','600 14px "IBM Plex Sans", sans-serif');c.fillStyle=clr;c.globalAlpha=.35;
+    arr.forEach((v,k)=>{const j=((k*7919)%100)/100-0.5;c.beginPath();c.arc(X(Math.min(v,.9)),y+j*36,3,0,7);c.fill();});c.globalAlpha=1;
+    const m=sumv(arr)/arr.length;c.strokeStyle=clr;c.lineWidth=3;c.beginPath();c.moveTo(X(m),y-26);c.lineTo(X(m),y+26);c.stroke();backTxt(c,`mean ${(m*100).toFixed(0)}%`,X(m)+8,y-30,clr,'left','middle',BOLD,col);};
+  if(l>=2)strip(ROB.mv,T0+40,css(CVW),'Mean–variance');if(l>=3)strip(ROB.bl,mid-40,css(CPO),'Black–Litterman');
+  if(l>=1){const ex=ROB.ex[RIDX%ROB.ex.length],P=SAAP(),T1=mid+84,B1=h-30,rh=(B1-T1)/9,Xw=v=>L+v/0.45*(R-L);
+    const tm=.5*sumv(ex.wm.map((v,i)=>Math.abs(v-P.mv[i]))),tb=.5*sumv(ex.wb.map((v,i)=>Math.abs(v-P.bl[i])));txt(c,`Draw ${RIDX%ROB.ex.length+1}: errors ${ex.e.map((x,i)=>SN[i]+' '+(x>=0?'+':'−')+Math.abs(x*100).toFixed(1)).join(' · ')}`,L-140,T1-34,col.ink,'left','middle','600 13px "IBM Plex Sans", sans-serif');
+    txt(c,`turnover: mean–variance ${p0(tm)} · Black–Litterman ${p0(tb)}`,L-140,T1-14,col.fc,'left','middle',BOLD);
+    NM9.forEach((nm,i)=>{const y=T1+i*rh;txt(c,nm,L-12,y+rh/2,col.ink,'right','middle',SANS);const bh=Math.min(7,(rh-4)/4);
+      [[P.mv[i],css(CVW),.35],[ex.wm[i],css(CVW),1],[P.bl[i],css(CPO),.35],[ex.wb[i],css(CPO),1]].forEach(([v,clr,a],j)=>{c.fillStyle=clr;c.globalAlpha=a;c.fillRect(L,y+rh/2-2*bh+j*bh,Math.max(0,Xw(Math.min(v,.45))-L),bh-1);});c.globalAlpha=1;});
+    txt(c,'light: before the error · dark: after',R,T1-14,col.mut,'right','middle',SANS);}}
+const DSTEPS=[
+ {title:'Three strategic portfolios',fig:'canvas',draw:drawD1,ctrls:l=>l>=2?['c','gam']:['gam'],
+  figT:()=>`Strategic portfolios under the Committee’s rules, γ = ${G.gam.toFixed(1)}`,
+  leg:l=>[[css(CEQ),'no views (equilibrium)'],[css(CVW),'mean–variance, AQR CMAs'],[css(CPO),`Black–Litterman, c = ${G.c.toFixed(2)}`]].filter((_,k)=>k<=Math.min(l,2)),
+  note:'Committee rules: fully invested, long only, cash ≥ 2%, no class above 40%. AQR (2026) CMAs; managed futures 0 in the mean–variance case, no view in Black–Litterman.',
+  lines:[{hd:'No views',t:'\\boldsymbol\\mu = \\Pi',a:()=>{const w=SAAP().eq;return `US ${p0(w[0])}, IG ${p0(w[4])}<br>→ the market portfolio`;}},
+         {hd:'Mean–variance with the AQR CMAs',t:'\\boldsymbol\\mu = Q_{AQR}',a:()=>{const w=SAAP().mv;return `US ${p0(w[0])}, Dev ${p0(w[1])}<br>→ corners`;}},
+         {hd:'Black–Litterman',t:'\\boldsymbol\\mu = \\mu_{BL}(c)',a:()=>{const w=SAAP().bl;return `US ${p0(w[0])}, Dev ${p0(w[1])}<br>EMD ${p0(w[6])}, IG ${p0(w[4])}`;}},
+         {t:'\\text{same views, same rules}',a:()=>'very different<br>portfolios'}],
+  text:l=>{const P=SAAP();return [[`No views: the optimizer returns the market portfolio, within the Committee’s rules.`],
+    [`Mean–variance with AQR’s 5–10-year CMAs: corners again. No US equity, ${p0(P.mv[1])} developed ex-US.`],
+    [`Black–Litterman with c = ${G.c.toFixed(2)}: a <b>tilted market portfolio</b>. US equity ${p0(P.bl[0])} instead of 30%, developed ex-US ${p0(P.bl[1])} instead of 13%, EM debt ${p0(P.bl[6])} instead of 5%, real assets ${p0(P.bl[3])}.`,`Every tilt follows a view: AQR is below equilibrium on US equity and real assets, above on developed ex-US and EM debt.`],
+    [`Same views, same rules, very different portfolios.`,`In Case 1, Task 1 uses your own CMAs and the optimizer of Session 2; Black–Litterman toward market weights is a robustness check you may report.`]][l];}},
+ {title:'Confidence decides how far you move',fig:'canvas',draw:drawD2,ctrls:l=>l>=2?['c']:[],
+  figT:()=>`Strategic portfolio for each level of confidence in the AQR views, γ = ${G.gam.toFixed(1)}`,
+  note:'Each vertical slice is one optimized portfolio under the Committee’s rules.',
+  lines:[{t:'c = 0:\\ \\text{the market portfolio}',a:()=>'equilibrium only'},
+         {t:'c \\to 1:\\ \\text{the mean–variance corners}',a:()=>'views only'},
+         {t:()=>`c = ${G.c.toFixed(2)}`,a:()=>{const w=W9(optimize(blSAA(G.c),G.gam));return `US ${p0(w[0])}, Dev ${p0(w[1])}<br>IG ${p0(w[4])}, EMD ${p0(w[6])}`;}},
+         {hd:'Report the range',t:'c = 0.25,\\ 0.5,\\ 0.75',a:()=>{const r=[.25,.5,.75].map(c=>W9(optimize(blSAA(c),G.gam)));return `US ${r.map(w=>p0(w[0]).replace('%','')).join(' / ')}<br>Dev ${r.map(w=>p0(w[1]).replace('%','')).join(' / ')} · EMD ${r.map(w=>p0(w[6]).replace('%','')).join(' / ')}`;}}],
+  text:l=>[[`Read the chart from left to right. At c = 0 the views get no weight: the market portfolio.`],
+    [`At the right edge the views get almost all the weight: the mean–variance corners.`,`Everything in between is Black–Litterman: the views pull the portfolio away from the market step by step.`],
+    [`We use c = 0.5: each view as precise as equilibrium. Move the slider to see the portfolio at another confidence.`,`A longer investment horizon argues for less weight on 5–10-year CMAs; a shorter review cycle for more.`],
+    [`Confidence is now the key choice, so report the range: US equity ${[.25,.5,.75].map(c=>p0(W9(optimize(blSAA(c),G.gam))[0])).join(', ')} at c = 0.25, 0.5 and 0.75.`]][l]},
+ {title:'Robustness: what if the CMAs are 1 point off?',fig:'canvas',draw:drawD3,ctrls:l=>l>=1?['draw']:[],
+  figT:()=>'Random 1-point errors in the AQR views, re-optimized 300 times',
+  leg:()=>[[css(CVW),'mean–variance'],[css(CPO),'Black–Litterman']],
+  note:'Errors: normal, standard deviation 1 point, independent across the seven views; c = 0.5, γ = 2.5, Committee rules. Turnover = half the sum of absolute weight changes, cash included. Precomputed draws.',
+  lines:[{hd:'Perturb the views',t:'\\tilde q_k = q_k + \\varepsilon_k,\\quad \\varepsilon_k \\sim N\\big(0,\\,(1\\%)^2\\big)',a:()=>'re-optimize,<br>300 draws'},
+         {hd:'How much changes',t:'\\text{turnover} = \\tfrac12 \\textstyle\\sum_i \\lvert \\tilde w_i - w_i \\rvert',a:()=>'share of the<br>portfolio traded'},
+         {t:'\\text{mean–variance}',a:()=>`${p0(sumv(ROB.mv)/ROB.mv.length)} on average`},
+         {t:'\\text{Black–Litterman}',a:()=>`${p0(sumv(ROB.bl)/ROB.bl.length)} on average`}],
+  text:l=>[[`A 1-point error is modest for a 10-year forecast. What does it do to the portfolio?`],
+    [`One draw at a time: each class gets its own random error; light bars are the portfolio before, dark bars after. Press “Show another draw”.`],
+    [`Mean–variance: on average ${p0(sumv(ROB.mv)/ROB.mv.length)} of the portfolio changes. The corners jump from one class to another.`],
+    [`Black–Litterman: ${p0(sumv(ROB.bl)/ROB.bl.length)}. The anchor absorbs part of each error.`,`Black–Litterman cuts the damage from CMA errors, but confidence is now the key choice: always report the range.`]][l]}];
+
+/* ======================================================================
+   PART E: TAA, SHORT-RUN VIEWS AND THE TRACKING-ERROR BUDGET
+   Predictive tests on the nine-class USD data, predictors lagged one month, out of sample 2008–2025 (expanding window).
+   ====================================================================== */
+const DUR={r2is:.0136,r2os:.0102,fc:.0115,avg:.0252,now:'term spread 0.55 points'};
+const SBV={r2is:.0375,r2os:.0046,fc:-.0168,avg:.0483,now:'yield gap −0.54 points (E/P 3.60%, 10-year 4.14%)'};
+const DPV={r2is:.0150,r2os:-.0272,fc:-.0581,avg:.0734};
+const muSAA=()=>blSAA(0.5),wSAA=()=>optimize(muSAA(),G.gam);
+const pIG=[0,0,0,0,1,0,0,0],pSB=[1,0,0,0,-1,0,0,0];
+const qDur=()=>muSAA()[4]+(DUR.fc-DUR.avg),qSB=()=>muSAA()[0]-muSAA()[4]+(SBV.fc-SBV.avg);
+function taaViews(set){const P=[],Q=[],cs=[];if(set!=='sb'){P.push(pIG);Q.push(qDur());cs.push(G.cd);}if(set!=='dur'){P.push(pSB);Q.push(qSB());cs.push(G.cs);}return{P,Q,cs};}
+const muTAA=set=>{const v=taaViews(set);return BL(muSAA(),v.P,v.Q,v.cs,G.tau).mu;};
+const wTAA=(set,te)=>optimize(muTAA(set),G.gam,te==null?{}:{te,wref:wSAA()});
+/* signed horizontal bars on canvas */
+function sbarsC(c,w,h,col,vals,clr,o={}){const L=110,R=w-30,T0=o.top||40,B0=o.bot||h-30,rh=(B0-T0)/vals.length,mx=o.max||Math.max(...vals.map(Math.abs),1e-9),M=(L+R)/2,X=v=>M+v/mx*(R-L)/2*0.85;
+  c.strokeStyle=col.mut;c.lineWidth=1;c.beginPath();c.moveTo(M+.5,T0);c.lineTo(M+.5,B0);c.stroke();
+  vals.forEach((v,i)=>{const y=T0+i*rh;txt(c,o.labels[i],L-12,y+rh/2,col.ink,'right','middle',SANS);const bh=Math.min(20,rh-8);c.fillStyle=clr;c.globalAlpha=.9;c.fillRect(Math.min(M,X(v)),y+rh/2-bh/2,Math.abs(X(v)-M),bh);c.globalAlpha=1;
+    txt(c,o.fmt(v),v>=0?X(v)+6:X(v)-6,y+rh/2,col.ink,v>=0?'left':'right','middle',MONO);});}
+function drawE1(c,w,h,col){hbars(c,w,h,col,[[W9(wSAA()),'',css(CPO)]]);}
+function drawE2(c,w,h,col){const l=C.line;if(l<4){const L=60,R=w-30,T0=60,B0=h-80,lo=-.02,hi=.06,Y=v=>B0-(v-lo)/(hi-lo)*(B0-T0);
+    hgrid(c,Y,nice(lo,hi,8),v=>(v*100).toFixed(0)+'%',L,R,col);txt(c,'IG bonds, excess return over cash, % a year',L,T0-26,col.ink,'left','middle','600 14px "IBM Plex Sans", sans-serif');
+    const bar=(x,v,clr,lab,sub)=>{const bw=(R-L)/6;c.fillStyle=clr;c.fillRect(x-bw/2,Math.min(Y(v),Y(0)),bw,Math.abs(Y(v)-Y(0)));backTxt(c,lab,x,v>=0?Y(v)-14:Y(v)+14,clr,'center','middle','600 16px "IBM Plex Mono", monospace',col);txt(c,sub,x,B0+20,col.ink,'center','middle',SANS);};
+    c.strokeStyle=col.mut;c.beginPath();c.moveTo(L,Y(0));c.lineTo(R,Y(0));c.stroke();
+    const xs=[L+(R-L)*.17,L+(R-L)*.5,L+(R-L)*.83];
+    if(l>=2){bar(xs[0],DUR.avg,css(CEQ),p2(DUR.avg),'historical average');bar(xs[1],DUR.fc,css(CVW),p2(DUR.fc),'forecast today');txt(c,`→ ${p2(DUR.fc-DUR.avg)} below average`,xs[1],B0+40,col.fc,'center','middle',BOLD);}
+    if(l>=3){bar(xs[2],qDur(),css(CPO),p2(qDur()),'the view q');txt(c,`= μ_SAA,IG ${p2(muSAA()[4])} ${p2(DUR.fc-DUR.avg)}`,xs[2],B0+40,col.fc,'center','middle',BOLD);}
+    if(l<2){txt(c,`R²: in sample ${(DUR.r2is*100).toFixed(2)}%, out of sample ${(DUR.r2os*100).toFixed(2)}%`,(L+R)/2,(T0+B0)/2-20,col.ink,'center','middle','600 22px "IBM Plex Mono", monospace');
+      if(l>=1)txt(c,`c = ${(DUR.r2os*100).toFixed(2)} / ${(DUR.r2is*100).toFixed(2)} = ${(DUR.r2os/DUR.r2is).toFixed(2)}`,(L+R)/2,(T0+B0)/2+24,css(CPO),'center','middle','600 26px "IBM Plex Mono", monospace');}
+    return;}
+  const d=sub(muTAA('dur'),muSAA());txt(c,'Change in expected return: tactical minus strategic, percentage points',110,22,col.ink,'left','middle','600 14px "IBM Plex Sans", sans-serif');
+  sbarsC(c,w,h,col,d,css(CPO),{labels:SN,fmt:v=>(v>=0?'+':'')+(v*100).toFixed(2)});}
+function drawE3(c,w,h,col){const l=C.line,v=taaViews('sb'),lit=optimize(BL(muSAA(),v.P,v.Q,[0.999],G.tau).mu,G.gam),cc=optimize(muTAA('sb'),G.gam);
+  const ser=[[W9(wSAA()),'',css(CEQ)]];if(l>=3)ser.push([W9(lit),'',css(CVW)]);if(l>=4)ser.push([W9(cc),'',css(CPO)]);hbars(c,w,h,col,ser);}
+/* tracking error: weight change per 1% TE, one class against cash */
+function drawE4(c,w,h,col){const l=C.line;
+  if(l<=2){const per=VOL.map(s=>0.01/s),T0=70;txt(c,'How many weight points does 1% of tracking error buy? (one class against cash)',110,22,col.ink,'left','middle','600 14px "IBM Plex Sans", sans-serif');
+    const L=170,R=w-30,B0=h-(l>=1?170:40),rh=(B0-T0)/N,X=v=>L+v/0.3*(R-L);
+    for(const v of [0,.1,.2,.3]){const x=Math.round(X(v))+.5;c.strokeStyle=col.rule;c.beginPath();c.moveTo(x,T0);c.lineTo(x,B0);c.stroke();txt(c,(v*100)+' pts',x,B0+14,col.mut,'center','middle',MONO);}
+    SN.forEach((nm,i)=>{const y=T0+i*rh,hl=i===4||i===0;txt(c,`${nm} (σ ${(VOL[i]*100).toFixed(1)}%)`,L-12,y+rh/2,col.ink,'right','middle',SANS);c.fillStyle=hl&&l>=2?css(CPO):col.mut;c.globalAlpha=hl&&l>=2?1:.6;c.fillRect(L,y+6,X(per[i])-L,rh-12);c.globalAlpha=1;txt(c,`±${(per[i]*100).toFixed(1)}`,X(per[i])+6,y+rh/2,col.ink,'left','middle',MONO);});
+    if(l>=1){const by=h-140;c.fillStyle=col.soft;c.fillRect(30,by,w-60,118);
+      txt(c,'Worked examples: TE = |Δw| × σ when one class is switched into cash',46,by+22,col.ink,'left','middle','600 15px "IBM Plex Sans", sans-serif');
+      txt(c,`Sell 10 points of IG bonds:  0.10 × ${(VOL[4]*100).toFixed(1)}% = ${(0.10*VOL[4]*100).toFixed(2)}% TE`,46,by+54,col.ink,'left','middle','15px "IBM Plex Mono", monospace');
+      txt(c,`Sell 10 points of US equity:  0.10 × ${(VOL[0]*100).toFixed(1)}% = ${(0.10*VOL[0]*100).toFixed(2)}% TE`,46,by+82,col.ink,'left','middle','15px "IBM Plex Mono", monospace');
+      txt(c,'Same trade size, 3.6 times the tracking error.',46,by+106,col.fc,'left','middle',BOLD);}
+    return;}
+  const set=G.vset,grid=Array.from({length:21},(_,k)=>k*0.001),key=set+'|'+G.cd+'|'+G.cs+'|'+G.gam+'|'+G.tau;
+  if(!TEC[key])TEC[key]=grid.map(te=>W9(te===0?wSAA():wTAA(set,te)));const sw=TEC[key];
+  const L=64,R=w-120,T0=40,B0=h-70,X=v=>L+v/0.02*(R-L),Y=v=>B0-v*(B0-T0);
+  hgrid(c,Y,[0,.2,.4,.6,.8,1],v=>(v*100).toFixed(0)+'%',L,R,col);let base=sw.map(()=>0);
+  for(let i=0;i<9;i++){c.beginPath();sw.forEach((wv,k)=>{const x=X(grid[k]),y=Y(base[k]+wv[i]);k?c.lineTo(x,y):c.moveTo(x,y);});
+    for(let k=sw.length-1;k>=0;k--)c.lineTo(X(grid[k]),Y(base[k]));c.closePath();c.fillStyle=PAL[i];c.globalAlpha=.85;c.fill();c.globalAlpha=1;
+    const last=sw[sw.length-1],yb=base[base.length-1];if(last[i]>0.03)txt(c,`${NM9[i]} ${(last[i]*100).toFixed(0)}`,R+8,Y(yb+last[i]/2),PAL[i],'left','middle','600 13px "IBM Plex Sans", sans-serif');
+    if(sw[0][i]>0.03)txt(c,`${NM9[i]} ${(sw[0][i]*100).toFixed(0)}`,X(0)+6,Y(base[0]+sw[0][i]/2),col.surf,'left','middle','600 12px "IBM Plex Sans", sans-serif');
+    base=base.map((b,k)=>b+sw[k][i]);}
+  for(const v of [0,.005,.01,.015,.02])txt(c,(v*100).toFixed(1)+'%',X(v),B0+14,col.mut,'center','middle',MONO);
+  txt(c,'tracking-error budget against the SAA, % a year',X(.01),B0+34,col.ink,'center','middle',SANS);txt(c,'= the SAA',X(0),B0+34,col.mut,'left','middle',SANS);
+  const xm=X(G.te);c.strokeStyle=col.ink;c.lineWidth=2;c.setLineDash([5,4]);c.beginPath();c.moveTo(xm,T0-8);c.lineTo(xm,B0);c.stroke();c.setLineDash([]);
+  backTxt(c,`TE ≤ ${(G.te*100).toFixed(1)}%${Math.abs(G.te-.01)<1e-9?' (Case 1 rule)':''}`,xm,T0-16,col.ink,'center','middle',BOLD,col);}
+const TEC={};
+const ESTEPS=[
+ {title:'The tactical prior: start from the strategic portfolio',fig:'canvas',draw:drawE1,ctrls:()=>[],
+  figT:()=>'The strategic portfolio from part D (AQR views, c = 0.5)',leg:()=>[[css(CPO),'SAA']],
+  note:'The slides write Π_SAA = γΣw_SAA. Because the Committee’s 40% cap binds on IG bonds, that formula gives IG 0.40%; we use the returns that produced the SAA (IG 0.74%), which reproduce the slides’ numbers.',
+  lines:[{hd:'The strategic portfolio (part D)',t:'w_{SAA}',a:()=>{const w=W9(wSAA());return `US ${p0(w[0])}, Dev ${p0(w[1])}<br>IG ${p0(w[4])}, EMD ${p0(w[6])}`;}},
+         {hd:'Its expected returns',t:'\\mu_{SAA} = \\mu_{BL}\\ \\ (\\text{AQR views},\\ c = 0.5)',a:()=>{const m=muSAA();return `US ${p2(m[0])}<br>IG ${p2(m[4])}`;}},
+         {t:'\\text{no tactical views} \;\\Rightarrow\; w = w_{SAA}',a:()=>'the anchor<br>for tactical tilts'},
+         {hd:'A tactical view',t:'q = \\mu_{SAA} + (\\hat r - \\bar r),\\quad c = R^2_{OS}/R^2_{IS}',a:()=>'today’s forecast minus<br>the historical average'}],
+  text:l=>[[`Tactical allocation starts where part D ended: the strategic portfolio.`],
+    [`The expected returns behind the SAA play the role that Π played in part D: the prior.`],
+    [`With no tactical views, the optimizer simply returns the SAA. Every tactical tilt is a deviation from it.`],
+    [`A tactical view says how far today’s forecast is from the historical average. That deviation is added to the strategic expected return.`,`Confidence comes from Session 4: the share of in-sample predictability that survives out of sample, zero if R²<sub>OS</sub> ≤ 0, capped below one.`]][l]},
+ {title:'Duration view: the term spread and IG bonds',fig:'canvas',draw:drawE2,ctrls:l=>l>=4?['cd']:[],
+  figT:()=>C.line<4?'Term spread → IG bond excess returns, nine-class USD data':'What the duration view does to every class',
+  note:'IG bond excess returns over cash 2000–2025; Goyal–Welch term spread lagged one month; out of sample 2008–2025, expanding window. In Case 1 you estimate on the euro index data.',
+  lines:[{hd:'Session 4’s test on the Case data',t:'R^2_{IS} = 1.36\\%,\\quad R^2_{OS} = 1.02\\%',a:()=>'predictive power<br>survives out of sample'},
+         {hd:'Confidence',t:'c = \\dfrac{R^2_{OS}}{R^2_{IS}} = \\dfrac{1.02}{1.36} = 0.75',a:()=>'a confident view'},
+         {hd:'Today’s forecast',t:'\\hat r_{IG} = 1.15\\%\\ \\ \\text{vs}\\ \\ \\bar r_{IG} = 2.52\\%',a:()=>`flat curve: ${DUR.now}<br>→ −1.37 points`},
+         {hd:'The view',t:'p = (0,0,0,0,1,0,0,0),\\quad q = \\mu_{SAA,IG} - 1.37\\%',a:()=>`q = ${p2(muSAA()[4])} − 1.37%<br>= ${p2(qDur())}`},
+         {hd:'Posterior',t:'\\mu_{TAA} = \\mu_{SAA} + K\\,(q - p\\,\\mu_{SAA})',a:()=>{const d=sub(muTAA('dur'),muSAA());return `IG ${(d[4]*100).toFixed(2)}, Real ${(d[3]*100).toFixed(2)}<br>MF ${(d[7]>=0?'+':'')+(d[7]*100).toFixed(2)} points`;}}],
+  text:l=>[[`Session 4: the term spread predicts bond returns, and the prediction survives out of sample. On the Case data: in sample ${(DUR.r2is*100).toFixed(2)}%, out of sample ${(DUR.r2os*100).toFixed(2)}% a month.`],
+    [`Most of the in-sample predictability survives, so the view gets a high confidence: c = 0.75.`],
+    [`The yield curve was nearly flat at the end of 2025. The regression forecasts IG bonds at 1.15% over cash next year, against an average of 2.52%: 1.37 points lower.`],
+    [`The view: IG bonds will earn 1.37 points less than in the SAA. Written as in part C: one row of P, one number in Q, and ω from c.`],
+    [`The view lowers IG bonds by ${(-(sub(muTAA('dur'),muSAA())[4])*100).toFixed(2)} points: about c × 1.37. Through the correlations the other classes move too; managed futures rise slightly, because they hedge.`,`Real assets fall even more than IG: they are five times as volatile, so a modest correlation with bonds becomes a large move in points.`,`Move c: the whole pattern scales with confidence.`]][l]},
+ {title:'Stocks vs bonds: the yield gap',fig:'canvas',draw:drawE3,ctrls:l=>l>=4?['cs']:[],
+  figT:()=>'Committee’s rules, no tracking-error limit yet',
+  leg:l=>[[css(CEQ),'SAA'],[css(CVW),'view taken literally (c → 1)'],[css(CPO),`with confidence c = ${G.cs.toFixed(2)}`]].filter((_,k)=>k===0||(k===1&&l>=3)||(k===2&&l>=4)),
+  note:'Yield gap: S&P 500 earnings yield minus the 10-year Treasury yield (Goyal–Welch), lagged one month. Target: US equity minus IG bond returns, nine-class USD data; out of sample 2008–2025.',
+  lines:[{hd:'A relative view',t:'p = (1,0,0,0,-1,0,0,0)',a:()=>'US equity<br>minus IG bonds'},
+         {hd:'Session 4’s test',t:'R^2_{IS} = 3.75\\%,\\quad R^2_{OS} = 0.46\\%',a:()=>`c = 0.46 / 3.75<br>= ${(SBV.r2os/SBV.r2is).toFixed(2)}`},
+         {hd:'Today’s forecast',t:'\\hat r_{US-IG} = -1.68\\%\\ \\ \\text{vs}\\ \\ \\bar r = 4.83\\%',a:()=>`${SBV.now.split(' (')[0]}<br>q = ${p2(qSB())}`},
+         {hd:'Taken literally',t:'c \\to 1',a:()=>{const v=taaViews('sb'),w=W9(optimize(BL(muSAA(),v.P,v.Q,[0.999],G.tau).mu,G.gam));return `all equities sold<br>IG ${p0(w[4])}, cash ${p0(w[8])}`;}},
+         {hd:'With confidence',t:()=>`c = ${G.cs.toFixed(2)}`,a:()=>{const w=W9(optimize(muTAA('sb'),G.gam));return `US ${p0(w[0])}, EMD ${p0(w[6])}<br>still a large move`;}}],
+  text:l=>[[`A relative view: US equity against IG bonds, a long–short portfolio like view 2 in part C.`],
+    [`The yield gap (earnings yield minus the 10-year yield) survives out of sample, but only just: c = ${(SBV.r2os/SBV.r2is).toFixed(2)}, a weak view.`,`Compare the dividend yield for US equity: R²<sub>OS</sub> = ${(DPV.r2os*100).toFixed(2)}%, so c = 0 and no view at all. A view that fails out of sample is still a result: report it, and give it no weight.`],
+    [`Earnings yields are below bond yields today. The regression forecasts stocks to <b>underperform</b> bonds by 1.68% next year, against an average outperformance of 4.83%: 6.5 points worse.`],
+    [`Taken literally, with full confidence, the optimizer sells all equities: US, developed and emerging alike, because the view spreads through the correlations.`],
+    [`With c = ${G.cs.toFixed(2)} the move is much smaller, but under the Committee’s rules alone it is still large. Something else must set the size of the bet: the tracking-error budget.`]][l]},
+ {title:'The tracking-error budget sets the size of the bet',fig:'canvas',draw:drawE4,ctrls:l=>l>=3?['te','vset']:[],
+  figT:()=>C.line<=2?'Tracking error, one class at a time':`Tactical portfolio for each tracking-error budget, views: ${{both:'duration + stocks vs bonds',dur:'duration only',sb:'stocks vs bonds only'}[G.vset]}`,
+  note:'Tactical optimization: the Committee’s rules plus (w − w_SAA)ᵀ Σ (w − w_SAA) ≤ TE². Same γ and Σ as the SAA.',
+  lines:[{hd:'What is tracking error?',t:'TE = \\mathrm{sd}\\big(r_{TAA} - r_{SAA}\\big)',a:()=>'how far the tactical return<br>can stray from the strategic'},
+         {hd:'Only the weight changes matter',t:'TE = \\sqrt{\\Delta w^{\\top}\\,\\Sigma\\,\\Delta w},\\quad \\Delta w = w_{TAA} - w_{SAA}',a:()=>'one class against cash:<br>TE = |Δw| × σ'},
+         {hd:'Why bonds can move more',t:'1\\%\\ TE:\\ \\ \\text{IG} \\pm 24\\ \\text{pts},\\ \\ \\text{US} \\pm 7\\ \\text{pts}',a:()=>`σ: IG ${(VOL[4]*100).toFixed(1)}%<br>US ${(VOL[0]*100).toFixed(1)}%`},
+         {hd:'The tactical optimizer',t:'\\max_w\\, w^{\\top}\\mu_{TAA} - \\tfrac{\\gamma}{2}w^{\\top}\\Sigma w\\ \\ \\text{s.t. rules},\\ TE \\le 1\\%',a:()=>'Case 1 rule'},
+         {hd:'The budget, not the forecast, sets the size',t:()=>`TE \\le ${(G.te*100).toFixed(1)}\\%`,a:()=>{const w=G.te===0?W9(wSAA()):W9(wTAA(G.vset,G.te)),ws=W9(wSAA());return `IG ${p0(ws[4])} → ${p0(w[4])}, cash ${p0(ws[8])} → ${p0(w[8])}<br>US ${p0(ws[0])} → ${p0(w[0])}`;}},
+         {t:'\\text{a limit is a maximum, not a target}',a:()=>'“no material deviation”<br>is a valid answer'}],
+  text:l=>{const ws=W9(wSAA());return [[`The tactical portfolio may differ from the strategic one. Tracking error measures how much its return can differ from the SAA’s return: the standard deviation of the difference, % a year.`,`Case 1 rule: at most 1% a year.`],
+    [`Tracking error depends only on the weight changes Δw and the covariance matrix: the same formula as portfolio volatility, applied to the bet.`,`Worked examples in the chart: selling 10 points of IG costs ${(0.10*VOL[4]*100).toFixed(2)}% TE; selling 10 points of US equity costs ${(0.10*VOL[0]*100).toFixed(2)}%.`],
+    [`One percent of TE buys a 24-point move in IG bonds but only a 7-point move in US equity, because IG is about four times less volatile.`,`That is why the duration view can move the portfolio a lot while equity tilts stay small.`],
+    [`The tactical optimizer is the strategic one with one more constraint: the TE budget. Use the slider to change the budget, and the buttons to switch views on and off.`],
+    [`At 1% (the Case rule), with ${{both:'both views',dur:'the duration view',sb:'the stocks–bonds view'}[G.vset]}: see the numbers on the left. IG bonds move most: they are cheap in TE. US equity barely moves.`,`With duration only, the slides’ numbers: IG 40% → 30% at 0.5%, 20% at 1%, 0% at 2%.`],
+    [`A limit is a maximum, not a target. If the views are weak, using less of the budget, or none, is a perfectly good answer.`]][l];}}];
+
+/* ======================================================================
+   STEPS
+   ====================================================================== */
+const ctl={lam:()=>({lab:'Market risk aversion λ',min:1,max:5,step:.1,get:()=>G.lam,set:v=>G.lam=v,fmt:v=>v.toFixed(1),hint:'Π scales with λ'}),
+  gam:()=>({lab:'Fund risk aversion γ',min:1,max:8,step:.5,get:()=>G.gam,set:v=>G.gam=v,fmt:v=>v.toFixed(1),hint:'γ = λ = 2.5: the fund is as risk averse as the market'}),
+  tau:()=>({lab:'Uncertainty of equilibrium τ',min:.01,max:.2,step:.01,get:()=>G.tau,set:v=>G.tau=v,fmt:v=>v.toFixed(2),hint:C.part==='B'&&C.step===1?'changes only the equilibrium bell: its width, not Π':'Ω is set from c, so the view bands widen with τ too; the posterior means stay put'}),
+  vk:()=>({lab:'Uncertainty of the view, sd √ω (points)',min:.25,max:3,step:.05,get:()=>G.vk,set:v=>G.vk=v,fmt:v=>(v*Math.sqrt(0.05)*VOL[G.asset]*100).toFixed(1),hint:'a wider view bell = less confidence in the view'}),
+  c:()=>({lab:'Confidence in the view c',min:.05,max:.95,step:.05,get:()=>G.c,set:v=>G.c=v,fmt:v=>v.toFixed(2),hint:'c = 0.5: the view is as precise as equilibrium'}),
+  q1:()=>({lab:'View 1: US equity earns q₁',min:0,max:.06,step:.001,get:()=>G.q1,set:v=>G.q1=v,fmt:pc,hint:'AQR: 2.6%'}),
+  q2:()=>({lab:'View 2: developed beats US by q₂',min:-.02,max:.04,step:.001,get:()=>G.q2,set:v=>G.q2=v,fmt:pc,hint:'AQR: 1.0%'}),
+  c1:()=>({lab:'Confidence in view 1, c₁',min:.05,max:.95,step:.05,get:()=>G.c1,set:v=>G.c1=v,fmt:v=>v.toFixed(2),hint:''}),
+  c2:()=>({lab:'Confidence in view 2, c₂',min:.05,max:.95,step:.05,get:()=>G.c2,set:v=>G.c2=v,fmt:v=>v.toFixed(2),hint:''}),
+  cd:()=>({lab:'Confidence in the duration view',min:0,max:.95,step:.05,get:()=>G.cd,set:v=>G.cd=v,fmt:v=>v.toFixed(2),hint:'R²OS / R²IS = 0.75'}),
+  cs:()=>({lab:'Confidence in the stocks–bonds view',min:0,max:.95,step:.01,get:()=>G.cs,set:v=>G.cs=v,fmt:v=>v.toFixed(2),hint:'R²OS / R²IS = 0.12'}),
+  te:()=>({lab:'Tracking-error budget',min:0,max:.02,step:.001,get:()=>G.te,set:v=>G.te=v,fmt:v=>(v*100).toFixed(1)+'%',hint:'Case 1 rule: at most 1%'})};
+const PARTS={
+ A:{name:'From Sessions 2 and 4 to equilibrium',tab:'Equilibrium',steps:[
+  {title:'Reverse optimization: from weights to returns',fig:'canvas',draw:drawA1,ctrls:l=>l>=3?['lam']:[],
+   figT:()=>'Nine Case 1 classes: market weights and the returns that make them optimal',
+   note:'Weights rounded from the global market portfolio (State Street, 2024). Σ: Case 1 monthly excess returns over US cash, 2000–2025.',
+   lines:[{hd:'Ordinary optimization',t:'\\boldsymbol\\mu \\;\\Rightarrow\\; w^{*} = \\tfrac{1}{\\lambda}\\,\\Sigma^{-1}\\boldsymbol\\mu',a:()=>'expected returns in,<br>weights out'},
+          {hd:'Reverse optimization',t:'w_{mkt} \\;\\Rightarrow\\; \\Pi = \\lambda\\,\\Sigma\\,w_{mkt}',a:()=>'market weights in,<br>expected returns out'},
+          {t:'\\Pi_{US} = \\lambda \\times \\mathrm{cov}(r_{US},\\, r_{mkt})',a:()=>`${G.lam.toFixed(1)} × ${COVM()[0].toFixed(4)}<br>= ${p2(PIv()[0])}`},
+          {t:'\\lambda = 2.5',a:()=>`the market's<br>risk aversion`}],
+   text:l=>[[`Session 2: put expected returns into the optimizer and weights come out.`,`Small changes in the inputs sent the weights to corners.`],
+     [`Turn it around. Market weights are what all investors hold together: <b>no forecast needed</b>.`,`Which expected returns would make the market portfolio the best portfolio? Those are the equilibrium returns Π.`],
+     [`Each Π is λ times the covariance of the class with the market: a class that adds more market risk must earn more.`,`US equity ${p2(PIv()[0])}; IG bonds ${p2(PIv()[4])}: they add little risk to a half-equity market.`],
+     [`λ = 2.5: the market's risk aversion (He and Litterman, 1999). Move the slider: Π scales with λ.`,`Managed futures and cash are in zero net supply. Managed futures have hedged equities, so their equilibrium premium is slightly negative (${p2(PIv()[7])}).`]][l]},
+  {title:'Back to Session 2’s optimizer',fig:'canvas',draw:drawA2,ctrls:()=>['gam'],
+   figT:()=>`Optimal portfolios under the Committee’s rules, γ = ${G.gam.toFixed(1)}`,
+   leg:l=>[[css(CEQ),'Equilibrium Π'],[css('--today'),'Goldman CMAs'],[css(CVW),'AQR CMAs']].filter((_,k)=>k<l),
+   note:'Committee rules: fully invested, long only, cash ≥ 2%, no class above 40%. Goldman: nominal long-run CMAs minus cash 3.15%. AQR (2026): real returns minus real US cash 1.3%; managed futures 0.',
+   lines:[{hd:'Same Σ, same rules: only μ changes',t:'\\max_{w}\\; w^{\\top}\\boldsymbol\\mu - \\tfrac{\\gamma}{2}\\, w^{\\top}\\Sigma\\, w',a:()=>`γ = ${G.gam.toFixed(1)}<br>long only, max 40%`},
+          {t:'\\boldsymbol\\mu = \\Pi',a:()=>{const w=POOL().eq;return `US ${p0(w[0])}, IG ${p0(w[4])}<br>→ the market portfolio`;}},
+          {t:'\\boldsymbol\\mu = \\text{Goldman CMAs}',a:()=>{const w=POOL().gold;return `US ${p0(w[0])}, EM ${p0(w[2])}<br>→ corners`;}},
+          {t:'\\boldsymbol\\mu = \\text{AQR CMAs}',a:()=>{const w=POOL().aqr;return `US ${p0(w[0])}, Dev ${p0(w[1])}<br>→ other corners`;}}],
+   text:l=>{const P=POOL();return [[`Session 2’s optimizer with the Committee’s rules. Keep Σ and the rules; change only the expected returns.`,`γ = ${G.gam.toFixed(1)}. With γ = λ = 2.5 the fund is exactly as risk averse as the market.`],
+     [`With Π, the optimizer gives back the market portfolio: no forecast and no corners.`,G.gam!==2.5?`With γ ≠ λ the same mix is scaled: more or less in cash.`:`IG is held at 39% instead of 41% because cash must be at least 2%.`],
+     [`With Goldman’s CMAs (Session 2): corners. US equity ${p0(P.gold[0])}, emerging markets ${p0(P.gold[2])}.`,`At γ = 4, as in Session 2, emerging markets get 36%.`],
+     [`With AQR’s CMAs (Session 3): other corners. US equity ${p0(P.aqr[0])}, developed ex-US ${p0(P.aqr[1])}, managed futures ${p0(P.aqr[7])}.`,`<b>The question of the session: how far should we move from Π toward the CMAs?</b>`]][l];}}]},
+ B:{name:'The Black–Litterman expected returns',tab:'Combining estimates',steps:[
+  {title:'Three horizons, three inputs',fig:'html',html:l=>`<div class="hzn"><div class="axis"><span>months</span><span>1–2 years</span><span>5–10 years</span><span>decades →</span></div>
+     <div class="row"><div class="blk eqb"><b>Equilibrium Π</b><span>no fixed horizon · market weights and risk only</span><span class="tag">→ the anchor (prior)</span></div></div>
+     <div class="row ${l<1?'dim':''}"><div></div><div></div><div class="blk cma"><b>CMAs</b><span>AQR building blocks: yields, CAPE, spreads</span><span class="tag">→ views in the SAA (D)</span></div></div>
+     <div class="row ${l<2?'dim':''}"><div class="blk prd"><b>Predictors</b><span>term spread, dividend yield; change fast</span><span class="tag">→ views in the TAA (E)</span></div></div>
+     <p class="quote ${l<2?'dim':''}" style="${l<2?'opacity:0':''}">AQR (2026): CMAs are “not intended for market timing”.</p></div>`,
+   figT:()=>'Which input belongs to which horizon',
+   lines:[{hd:'The anchor',t:'\\Pi = \\lambda\\,\\Sigma\\, w_{mkt}',a:()=>'no forecast,<br>no horizon'},
+          {hd:'Strategic views',t:'Q_{SAA}:\\ \\text{5–10-year CMAs}',a:()=>'depend on today’s<br>valuations'},
+          {hd:'Tactical views',t:'Q_{TAA}:\\ \\text{predictors}',a:()=>'months to<br>1–2 years'}],
+   text:l=>[[`Equilibrium does not depend on today’s valuations: it is the anchor that every view starts from.`],
+     [`CMAs are a slow deviation from equilibrium (Session 4, parts A–C). Their horizon matches the 3–5-year review cycle of a strategic allocation.`],
+     [`Predictors change fast and forecast poorly out of sample (Session 4, parts D–E): they get small tactical tilts.`,`One model handles all three: Black and Litterman (1992).`]][l]},
+  {title:'Two thermometers: one asset at a time',fig:'canvas',draw:drawB2,ctrls:l=>l>=1?['asset','vk','tau']:['asset','tau'],
+   figT:()=>`${LNM[G.asset]}: two estimates of the same expected return`,
+   leg:l=>[[css(CEQ),'equilibrium (prior)'],[css(CVW),'AQR view'],[css(CPO),'posterior']].filter((_,k)=>k<=Math.min(l,2)),
+   note:'σ: volatility of the class, Case 1 data 2000–2025. Prior sd = √τ × σ. On this page the view’s sd is set directly; c is the result.',
+   lines:[{hd:'1. Prior: the market’s estimate',t:'\\mu \\sim N\\big(\\Pi,\\ \\tau\\sigma^2\\big)',a:()=>{const o=one(G.asset);return `Π = ${p2(o.Pi)}<br>sd = √${G.tau.toFixed(2)} × ${p1(VOL[G.asset])} = ${(o.sp*100).toFixed(1)}`;}},
+          {hd:'2. View: our estimate',t:'Q \\sim N\\big(\\mu,\\ \\omega\\big)',a:()=>{const o=one(G.asset);return `Q = ${p2(o.Q)} (AQR)<br>sd = √ω = ${(o.sv*100).toFixed(1)}`;}},
+          {hd:'3. Precisions add (Bayes’ rule)',t:'\\dfrac{1}{s^2} = \\dfrac{1}{\\tau\\sigma^2} + \\dfrac{1}{\\omega}',a:()=>{const o=one(G.asset);return `${(o.pp/1e4).toFixed(3)} + ${(o.pv/1e4).toFixed(3)}<br>→ posterior sd ${(o.s*100).toFixed(1)}`;}},
+          {hd:'4. A precision-weighted average',t:'\\mu_{BL} = (1-c)\\,\\Pi + c\\,Q',a:()=>{const o=one(G.asset);return `${(1-o.cc).toFixed(2)} × ${p2(o.Pi)} + ${o.cc.toFixed(2)} × ${p2(o.Q)}<br>= ${p2(o.mu)}`;}},
+          {t:'c = \\dfrac{1/\\omega}{1/(\\tau\\sigma^2) + 1/\\omega}',a:()=>`c: the view’s share<br>of the total precision`}],
+   text:l=>{const o=one(G.asset),us=G.asset===0;return [[`Nobody knows the true expected return of ${us?'US equity':'IG bonds'}. The market’s best guess is Π = ${p2(o.Pi)}: the first thermometer.`,`Its uncertainty is a bell curve. τ = ${G.tau.toFixed(2)} keeps it narrow: we are unsure about the <b>mean</b>, not about one year’s return (σ = ${p1(VOL[G.asset])}).`],
+     [`AQR’s 5–10-year forecast says ${p2(o.Q)}: a second thermometer, also noisy.`,`Here the view is as uncertain as equilibrium (sd ${(o.sv*100).toFixed(1)} points). Drag its uncertainty to trust it more or less.`],
+     [`Precision is one over the variance: a narrow bell is a precise estimate.`,`Bayes’ rule for two bells: <b>the precisions add</b>. The posterior is narrower than either input: ${(o.s*100).toFixed(1)} points instead of ${(o.sp*100).toFixed(1)} and ${(o.sv*100).toFixed(1)}.`],
+     [`The posterior mean is an average of the two estimates, weighted by their precision.`,`c = ${o.cc.toFixed(2)}: ${p2(o.mu)}. With c → 0 we stay at Π; with c → 1 we move all the way to Q.`],
+     [`Confidence c is the view’s share of the total precision: the bar under the chart. Here c = <b>${o.cc.toFixed(2)}</b>.`,`Move τ: only the equilibrium bell changes; Π itself does not. A larger τ means we trust the market’s estimate less, so c rises and the posterior moves toward Q.`,us?`Switch to IG bonds: ${p2(one(4).Pi)} and ${p2(one(4).Q)} give ${p2(one(4).mu)}.`:`Back to US equity: ${p2(one(0).Pi)} and ${p2(one(0).Q)} give ${p2(one(0).mu)}.`]][l];}},
+  {title:'All nine classes at once',fig:'canvas',draw:drawB3,ctrls:()=>['c','tau'],
+   figT:()=>'Equilibrium, AQR views and the Black–Litterman posterior, ± 1 sd',
+   leg:l=>[[css(CEQ),'equilibrium Π'],[css(CVW),'AQR view Q'],[css(CPO),'posterior μ_BL']].filter((_,k)=>k<=l),
+   note:'AQR (2026) real returns minus AQR’s real US cash return (1.3%), currency ignored. Same confidence c for every view.',
+   lines:[{hd:'Prior for all classes',t:'\\boldsymbol\\mu \\sim N\\big(\\Pi,\\ \\tau\\Sigma\\big)',a:()=>'eight bells,<br>linked by correlations'},
+          {hd:'Seven AQR views',t:'P\\boldsymbol\\mu \\sim N\\big(Q,\\ \\Omega\\big)',a:()=>'no view on<br>managed futures'},
+          {hd:'Posterior',t:'\\boldsymbol\\mu_{BL} = \\Pi + K\\,(Q - P\\,\\Pi)',a:()=>{const r=BL(PIv(),P7,AQR,P7.map(()=>G.c),G.tau);return `US ${p2(r.mu[0])} (alone ${p2(one(0).mu)})<br>MF ${p2(r.mu[7])} (no view)`;}}],
+   text:l=>{const r=BL(PIv(),P7,AQR,P7.map(()=>G.c),G.tau);return [[`The same picture for every class: equilibrium ± 1 sd.`,`The bells are linked: US and developed equity move together (correlation ${(S[0][1]/VOL[0]/VOL[1]).toFixed(2)}).`],
+     [`AQR views for seven classes, each with confidence c = ${G.c.toFixed(2)}. No view on managed futures.`,`Where the view is far from Π (developed and EM equity, IG), the posterior will move most.`],
+     [`Each posterior lies between equilibrium and view, with a narrower band.`,`Computed together, the classes learn from each other: US ${p2(r.mu[0])} instead of ${p2(one(0).mu)} alone, IG ${p2(r.mu[4])} instead of ${p2(one(4).mu)}; managed futures move to ${p2(r.mu[7])} without a view.`,`Here Ω is set from c, as in Case 1: ω = (1−c)/c × pτΣp′. Then τ scales both uncertainties and drops out of the posterior mean; only the bands change.`,`Part C opens the box: how K spreads each view across the classes.`]][l];}}]},
+ C:{name:'The posterior, step by step',tab:'Step by step',steps:CSTEPS},
+ D:{name:'A strategic portfolio with Black–Litterman',tab:'Strategic portfolio',steps:DSTEPS},
+ E:{name:'TAA: short-run views',tab:'Tactical views',steps:ESTEPS}};
+const SOON={C:['Views as P, Q and Ω, drawn as small grids','The five-step recipe on the three-class block (US, developed ex-US, IG)','Reading the result: tilts only along the views'],
+  D:['Three strategic portfolios: no views, mean–variance with AQR CMAs, Black–Litterman','Confidence decides how far you move (0 → 1)','Robustness: random 1-point CMA errors'],
+  E:['The duration view: term spread → IG bonds, c = 0.75','The dividend-yield view: c = 0, no tilt','The tracking-error budget sets the size of the bet']};
+for(const k of [])PARTS[k].steps=[{title:'In preparation',fig:'html',html:()=>`<div class="soon">This part is being built. Planned steps:${ulC(SOON[k])}</div>`,figT:()=>PARTS[k].name,lines:[{}],text:()=>[`Coming next.`]}];
+
+/* ======================================================================
+   START, PAGE 4: THE BIG PICTURE (one asset, IG bonds, through both stages)
+   ====================================================================== */
+function bigNums(){const i=4,PiA=PIv(),sp=Math.sqrt(0.05)*VOL[i];
+  const s1=BL(PiA,P7,AQR,P7.map(()=>0.5),0.05);   // strategic stage, all seven AQR views
+  const mS=s1.mu[i],sS=Math.sqrt(s1.M[i][i]),sv1=Math.sqrt(s1.Om[i][i]);
+  const q=mS+(DUR.fc-DUR.avg),s2=BL(s1.mu,[pIG],[q],[0.75],0.05),mT=s2.mu[i],sT=Math.sqrt(s2.M[i][i]),sv2=Math.sqrt(s2.Om[0][0]);
+  const ws=W9(optimize(s1.mu,2.5)),wt=W9(optimize(s2.mu,2.5,{te:0.01,wref:optimize(s1.mu,2.5)}));
+  return{Pi:PiA[i],sp,Q:AQR[i],sv1,mS,sS,q,sv2,mT,sT,ws,wt};}
+let BIGC=null;
+function drawBig(cv,l){const {c,w,h}=prep(cv),col=COL(),B=BIGC||(BIGC=bigNums());
+  const pdf=(x,m,s)=>Math.exp(-.5*((x-m)/s)**2)/(s*Math.sqrt(2*Math.PI)),lo=-0.025,hi=0.03;
+  const pw=Math.floor(w*.19),gap=Math.floor(w*.035),x0=8,cells=[x0,x0+pw+gap,x0+2*(pw+gap)],ox=cells[2]+pw+gap,obw=Math.floor(w*.11),bx=ox+obw+gap,bw=w-bx-8;
+  const rows=[{y:40,h:Math.floor(h*.36)},{y:Math.floor(h*.58),h:Math.floor(h*.36)}];
+  const ymaxRef=pdf(0,0,B.sT)*1.08;
+  const bell=(cx,row,list,title,sub)=>{const top=row.y+26,bot=row.y+row.h-22,X=v=>cx+(v-lo)/(hi-lo)*pw,Y=v=>bot-Math.min(v,ymaxRef)/ymaxRef*(bot-top);
+    c.fillStyle=col.soft;c.globalAlpha=.55;c.fillRect(cx-4,row.y,pw+8,row.h);c.globalAlpha=1;
+    txt(c,title,cx+pw/2,row.y+12,col.ink,'center','middle','600 14px "IBM Plex Sans", sans-serif');
+    c.strokeStyle=col.mut;c.lineWidth=1;c.beginPath();c.moveTo(cx,bot+.5);c.lineTo(cx+pw,bot+.5);c.stroke();
+    for(const v of [-0.02,0,0.02])txt(c,(v*100).toFixed(0)+'%',X(v),bot+10,col.mut,'center','middle','11px "IBM Plex Mono", monospace');
+    list.forEach(([m,s,clr,a,lw,lab])=>{c.beginPath();for(let p=0;p<=120;p++){const x=lo+(hi-lo)*p/120;p?c.lineTo(X(x),Y(pdf(x,m,s))):c.moveTo(X(x),Y(pdf(x,m,s)));}
+      c.lineTo(cx+pw,bot);c.lineTo(cx,bot);c.closePath();c.fillStyle=clr;c.globalAlpha=a*.25;c.fill();c.globalAlpha=a;
+      c.beginPath();for(let p=0;p<=120;p++){const x=lo+(hi-lo)*p/120;p?c.lineTo(X(x),Y(pdf(x,m,s))):c.moveTo(X(x),Y(pdf(x,m,s)));}c.strokeStyle=clr;c.lineWidth=lw;c.stroke();c.globalAlpha=1;
+      if(lab)backTxt(c,lab,Math.max(cx+40,Math.min(cx+pw-40,X(m))),Math.max(top+8,Y(pdf(m,m,s))-12),clr,'center','middle','600 13px "IBM Plex Mono", monospace',col);});
+    if(sub)txt(c,sub,cx+pw/2,row.y+row.h+6,col.mut,'center','middle','12.5px "IBM Plex Sans", sans-serif');};
+  const op=(x,row,s)=>txt(c,s,x,row.y+row.h/2,col.ink,'center','middle','600 30px "IBM Plex Sans", sans-serif');
+  const arrowR=(x1,x2,y)=>{c.strokeStyle=col.ink;c.lineWidth=2;c.beginPath();c.moveTo(x1,y);c.lineTo(x2-8,y);c.stroke();c.beginPath();c.moveTo(x2,y);c.lineTo(x2-10,y-6);c.lineTo(x2-10,y+6);c.closePath();c.fillStyle=col.ink;c.fill();};
+  const optBox=(row,lab1,lab2)=>{const y=row.y+row.h/2-44;c.fillStyle=col.ink;c.fillRect(ox,y,obw,88);txt(c,'optimizer',ox+obw/2,y+22,col.surf,'center','middle','600 14px "IBM Plex Sans", sans-serif');
+    txt(c,lab1,ox+obw/2,y+46,col.surf,'center','middle','12px "IBM Plex Sans", sans-serif');if(lab2)txt(c,lab2,ox+obw/2,y+66,col.surf,'center','middle','600 12px "IBM Plex Sans", sans-serif');};
+  const bars=(row,wA,wB,title)=>{const top=row.y+26,bot=row.y+row.h-6,rh=(bot-top)/9,X=v=>bx+56+v/0.45*(bw-80);txt(c,title,bx+bw/2,row.y+12,col.ink,'center','middle','600 14px "IBM Plex Sans", sans-serif');
+    NM9.forEach((nm,i)=>{const y=top+i*rh;txt(c,nm,bx+50,y+rh/2,i===4?col.fc:col.mut,'right','middle',i===4?'600 11.5px "IBM Plex Sans", sans-serif':'11.5px "IBM Plex Sans", sans-serif');
+      if(wB){c.fillStyle=css(CPO);c.globalAlpha=.3;c.fillRect(X(0),y+2,X(wA[i])-X(0),rh-4);c.globalAlpha=1;c.fillStyle=css(CPO);c.fillRect(X(0),y+rh*.3,X(wB[i])-X(0),rh*.4);}
+      else{c.fillStyle=css(CPO);c.fillRect(X(0),y+2,X(wA[i])-X(0),rh-4);}
+      const v=wB?wB[i]:wA[i];if(v>0.005)txt(c,(v*100).toFixed(0)+(wB&&Math.abs(wB[i]-wA[i])>0.005?` (${(wA[i]*100).toFixed(0)})`:''),X(v)+4,y+rh/2,col.ink,'left','middle','11px "IBM Plex Mono", monospace');});};
+  // row titles
+  txt(c,'STRATEGIC (SAA) · long run, 5–10 years · confidence from judgment',x0,18,col.ink,'left','middle','600 15px "IBM Plex Mono", monospace');
+  const r0=rows[0],r1=rows[1];
+  if(l>=0)bell(cells[0],r0,[[B.Pi,B.sp,css(CEQ),1,2.5,`Π ${p2(B.Pi)}`]],'Prior: equilibrium','from market weights');
+  if(l>=1){op(cells[1]-gap/2,r0,'+');bell(cells[1],r0,[[B.Q,B.sv1,css(CVW),1,2.5,`Q ${p2(B.Q)}`]],'View: AQR 5–10-year CMA','c = 0.5');}
+  if(l>=2){op(cells[2]-gap/2,r0,'=');bell(cells[2],r0,[[B.Pi,B.sp,css(CEQ),.35,1.5,''],[B.Q,B.sv1,css(CVW),.35,1.5,''],[B.mS,B.sS,css(CPO),1,3,`${p2(B.mS)}`]],'Posterior: μ_SAA','between the two, narrower');}
+  if(l>=3){arrowR(cells[2]+pw+6,ox-4,r0.y+r0.h/2);optBox(r0,'Committee’s rules','');arrowR(ox+obw+4,bx-4,r0.y+r0.h/2);bars(r0,B.ws,null,'Strategic portfolio');}
+  if(l>=4){txt(c,'TACTICAL (TAA) · short run, months to 1 year · confidence from out-of-sample tests',x0,r1.y-16,col.ink,'left','middle','600 15px "IBM Plex Mono", monospace');
+    const xa=cells[2]+pw/2,xb=cells[0]+pw/2,ya=r0.y+r0.h+16,ym=r0.y+r0.h+36,yb=r1.y-30;c.strokeStyle=css(CPO);c.lineWidth=3;c.setLineDash([8,6]);c.beginPath();c.moveTo(xa,ya);c.lineTo(xa,ym);c.lineTo(xb,ym);c.lineTo(xb,yb-4);c.stroke();c.setLineDash([]);
+    c.beginPath();c.moveTo(xb,yb+6);c.lineTo(xb-8,yb-8);c.lineTo(xb+8,yb-8);c.closePath();c.fillStyle=css(CPO);c.fill();
+    backTxt(c,'the strategic posterior becomes the tactical prior',(xa+xb)/2,ym,css(CPO),'center','middle','600 14px "IBM Plex Sans", sans-serif',col);
+    bell(cells[0],r1,[[B.mS,B.sS,css(CPO),1,2.5,`${p2(B.mS)}`]],'Prior: μ_SAA','today’s strategy is the anchor');}
+  if(l>=5){op(cells[1]-gap/2,r1,'+');bell(cells[1],r1,[[0.005,0.05,col.mut,.8,1.5,''],[B.q,B.sv2,css(CVW),1,2.5,`q ${p2(B.q)}`]],'View: term spread','c = 0.75 · grey: dividend yield, c = 0');}
+  if(l>=6){op(cells[2]-gap/2,r1,'=');bell(cells[2],r1,[[B.mS,B.sS,css(CPO),.35,1.5,''],[B.q,B.sv2,css(CVW),.35,1.5,''],[B.mT,B.sT,css(CPO),1,3,`${p2(B.mT)}`]],'Posterior: μ_TAA','');
+    arrowR(cells[2]+pw+6,ox-4,r1.y+r1.h/2);optBox(r1,'Committee’s rules','+ TE ≤ 1%');arrowR(ox+obw+4,bx-4,r1.y+r1.h/2);bars(r1,B.ws,B.wt,'Tactical portfolio (SAA)');}}
+const BIGPAGE={n:7,draw:drawBig,html:l=>{const b=[
+   `Every expected return is an <b>estimate with uncertainty</b>: a bell. Example: IG bonds.`,
+   `Start from the market: weights imply equilibrium returns. <b>A</b>`,
+   `Add a long-run view: a 5–10-year CMA.`,
+   `Combine: precisions add; the posterior lies between and is narrower. <b>B–C</b>`,
+   `The optimizer turns it into the strategic portfolio. <b>D</b>`,
+   `The strategic posterior becomes the tactical prior.`,
+   `A short-run view; its width comes from the out-of-sample test. A failed predictor is a flat bell: no information.`,
+   `Same combination, plus a tracking-error budget: small tilts around the SAA. <b>E</b>`];
+   const vis=[0,1,2,3,4,5,6,7].filter(k=>k<=l+1);
+   return `<h2>The big picture: one model, two stages</h2><div class="bigp"><ul class="big bigl">${b.map((x,k)=>`<li class="${vis.includes(k)?'':'dim'}">${x}</li>`).join('')}</ul><canvas id="dk_cv" role="img" aria-label="Black–Litterman in two stages: equilibrium plus long-run views gives the strategic portfolio; the strategic posterior plus short-run views gives the tactical portfolio"></canvas></div>`;}};
+
+/* ---------- start and wrap-up decks ---------- */
+const dimC=(j,l)=>j>l?'dim':'';
+const MCU='https://mycourses.aalto.fi/course/view.php?id=52992';
+const DECK={
+ S:{name:'Session 5: Black–Litterman',tab:'Start',pages:[
+  {n:1,html:()=>`<div class="tp"><div class="ey">SESSION 5 · TUE 3 NOVEMBER 2026</div><h1 class="big">Black–Litterman</h1><div class="sub2">Strategic and tactical allocation from one model</div><hr>
+    <div class="who">Portfolio Management (28E34600), Autumn 2026<br>Juha Joenväärä, Aalto University School of Business</div>
+    <div class="rd">Reading: study notes, Session 5; lecture notes Ch. 10–12; He and Litterman (1999)</div>
+    <div class="go2">Black–Litterman Lab · press → to start</div></div>`},
+  {n:1,html:()=>{const r=(go,lt,nm,ds,ln,sn)=>`<tr data-go="${go}"><td class="lt">${lt}</td><td><span class="nm">${nm}</span><span class="ds">${ds}</span></td><td class="rf">${ln}</td><td class="rf">${sn}</td></tr>`;
+    return `<h2>Agenda</h2><table class="ag"><thead><tr><th></th><th>Part</th><th>Lecture notes</th><th>Study notes</th></tr></thead><tbody>
+    ${r('A','A','From Sessions 2 and 4 to equilibrium','Reverse optimization; back to the optimizer','10.2','1')}
+    ${r('B','B','The Black–Litterman expected returns','Three horizons; two estimates; Bayes with two thermometers','10.1, 10.3–10.5','2, A.1')}
+    ${r('C','C','The posterior, step by step','P, Q, Ω and the five-step recipe on a three-class block','10.6–10.8','3, A.2–A.4')}
+    ${r('D','D','A strategic portfolio with Black–Litterman','Confidence decides how far you move; robustness','11.1–11.2','4')}
+    ${r('E','E','TAA: short-run views','Confidence from out-of-sample tests; the tracking-error budget','11.3–11.4','5, A.5')}
+    ${r('W','W','Case 1 and wrap-up','Task 2, takeaways, before next week, references','11.5, Ch. 12','6')}</tbody></table>`;}},
+  {n:3,html:l=>`<h2>Where we left off</h2><div class="two" style="margin-top:6px">
+    <div class="sc"><h3>Session 2: the strategic problem</h3><p style="margin:0;font-size:18px;line-height:1.45">CMAs straight into the optimizer give corners: no US equity, 36% in emerging markets. A 1-point change in the CMAs moves everything.</p></div>
+    <div class="sc ${dimC(1,l)}"><h3>Session 4: equilibrium and deviations</h3><p style="margin:0;font-size:18px;line-height:1.45">Market weights are the equilibrium. Valuations push expected returns away from it; the deviations close slowly. Confidence decides how large a bet should be.</p></div></div>
+    <ul class="big ${dimC(2,l)}"><li>Today: start from equilibrium; move toward the CMAs only as far as confidence justifies</li>
+    <li>One model for the strategic portfolio (5–10-year views) and tactical tilts (short-run views): Black and Litterman (1992)</li></ul>`},
+  BIGPAGE]},
+ W:{name:'Case 1 and wrap-up',tab:'Wrap-up',pages:[
+  {n:2,html:l=>`<h2>Case 1, Task 2: the prior is your strategic portfolio</h2><div class="two">
+    <div><h3>Reverse-optimize your SAA</h3><div class="eq" style="font-size:26px">${tex('\\Pi_{SAA} = \\gamma\\,\\hat\\Sigma\\, w_{SAA}')}</div>
+      <ul class="big" style="font-size:18px"><li>Same γ and covariance matrix Σ as in Task 1: with no views, the optimizer returns your SAA</li><li>If a Committee limit binds (40% cap, cash floor), use the expected returns that produced your SAA, as in part E</li></ul>
+      <h3 style="margin-top:14px">Add the short-run views</h3><div class="eq" style="font-size:24px">${tex('q = \\Pi_{SAA} + (\\text{forecast} - \\text{historical mean})')}</div>
+      <ul class="big" style="font-size:18px"><li>c = R²<sub>OS</sub> / R²<sub>IS</sub>, zero if R²<sub>OS</sub> ≤ 0, capped below 1</li></ul></div>
+    <div class="${dimC(1,l)}"><h3>Then</h3><ul class="big" style="font-size:19px"><li>Today’s equilibrium was the market portfolio; in Case 1 the anchor is <b>your</b> strategic portfolio</li>
+      <li>Forecasts come from regressions on the <b>euro index returns</b>; map each to its case class (README sheet)</li>
+      <li>Re-optimize under the Committee’s rules with <b>tracking error at most 1%</b> against the SAA</li>
+      <li>“No material deviation” is an acceptable answer</li>
+      <li>At least one view must differ from the lecture examples: developed ex-US vs US equity, the term spread for IG bonds, and now the yield gap for stocks vs bonds</li></ul></div></div>`},
+  {n:1,html:()=>`<h2>What Case 1 needs</h2><table class="ag"><tbody>
+    <tr><td class="lt" style="width:150px">Task 1: SAA</td><td style="font-size:18px">Your own CMAs for the nine classes at 30.9.2026: AQR’s building blocks with the case-date inputs (Session 3), and how each moved from end-2025; risk model; γ and the Committee’s rules; the optimized portfolio with risk contributions; sensitivity to the CMAs and γ. Black–Litterman toward market weights (part D) is an optional check.</td></tr>
+    <tr><td class="lt">Task 2: TAA</td><td style="font-size:18px">Prior Π<sub>SAA</sub> = γΣw<sub>SAA</sub>; two to four views in P, Q, Ω form, at least one from a predictive regression on the euro index data with in-sample and out-of-sample R²; the tactical portfolio under the rules, tracking error at most 1%.</td></tr>
+    <tr><td class="lt">Both</td><td style="font-size:18px">An economic reason for every large position, tilt and zero weight.</td></tr></tbody></table>
+    <p class="banner" style="font-size:19px">Report due Fri 13.11, 16:00. The Case 1 notebook in MyCourses reproduces the examples of this session.</p>
+    <div><a class="lnk" href="${MCU}" target="_blank" rel="noopener">Open the course page in MyCourses ↗</a></div>`},
+  {n:4,html:l=>{const r=BL(PIv(),P7,AQR,P7.map(()=>0.5),0.05),card=(j,h,p,num)=>`<div class="sc ${dimC(j,l)}"><h3>${h}</h3><p>${p}</p><div class="num">${num}</div></div>`;
+    return `<h2>Takeaways</h2><div class="tk">
+    ${card(0,'A precision-weighted mean','The posterior averages equilibrium and views, each weighted by its precision.',`B: US 3.21% and 2.6% → ${p2(one(0).mu)} at c = 0.5`)}
+    ${card(1,'Write down P, Q and Ω','Which assets, how much, how sure. The rest is arithmetic.','C: five steps; K says who learns what')}
+    ${card(2,'Tilts only along the views','No view: the market portfolio. A view tilts the portfolio in its own direction.','C: US −21 points, developed +16, IG 0')}
+    ${card(3,'One model, three horizons','Equilibrium: the anchor. 5–10-year CMAs with moderate confidence: SAA. Short-run views with confidence from out-of-sample tests and a 1% budget: TAA.','D: a tilted market portfolio · E: the TE budget sets the size of the bet')}</div>`;}},
+  {n:1,html:()=>`<h2>Before next week</h2><ul class="big">
+    <li><b>Read</b> the Session 5 study notes; He and Litterman (1999)</li>
+    <li><b>Case 1:</b> run the notebook’s three-asset block; then reverse-optimize your strategic portfolio and enter your Task 2 views</li>
+    <li><b>Wed 4.11:</b> online clinic for Case 1 with Mikko Kauppila (time in MyCourses); bring your questions and the Case 1 exercise</li></ul>
+    <p class="banner">Next: Session 7, Tue 10.11 – The equity problem and Case 2.</p>
+    <div class="lbl2">Key dates</div><table class="dates"><tr><td>Wed 4.11</td><td>Session 6: online clinic for Case 1</td></tr><tr><td>Tue 10.11</td><td>Session 7: the equity problem and Case 2</td></tr><tr><td>Fri 13.11, 16:00</td><td>Case 1 report due in MyCourses</td></tr><tr><td>Week of 16.11</td><td>Presentations</td></tr></table>
+    <div><a class="lnk" href="${MCU}" target="_blank" rel="noopener">MyCourses: Portfolio Management ↗</a></div>`},
+  {n:1,html:()=>`<h2>References</h2><div class="lbl2">Papers and sources used in this lab</div><ul class="refl">
+    <li>AQR (2026), <i>Capital Market Assumptions for Major Asset Classes</i>, Alternative Thinking. (A, B, D)</li>
+    <li>Black, F. and R. Litterman (1992), “Global Portfolio Optimization”, <i>Financial Analysts Journal</i> 48(5), 28–43. (all parts)</li>
+    <li>He, G. and R. Litterman (1999), “The Intuition Behind Black–Litterman Model Portfolios”, Goldman Sachs Investment Management Research. (A, C)</li>
+    <li>Idzorek, T. M. (2007), “A Step-by-Step Guide to the Black–Litterman Model”, in S. Satchell (ed.), <i>Forecasting Expected Returns in the Financial Markets</i>, Academic Press. (Ω from confidence, C)</li>
+    <li>Satchell, S. and A. Scowcroft (2000), “A Demystification of the Black–Litterman Model: Managing Quantitative and Traditional Portfolio Construction”, <i>Journal of Asset Management</i> 1(2). (the Bayesian reading, B)</li>
+    <li>State Street Global Advisors (2024), <i>The Global Market Portfolio 2024</i>. (market weights, A)</li>
+    <li>Goyal, A. and I. Welch (2008), “A Comprehensive Look at the Empirical Performance of Equity Premium Prediction”, <i>Review of Financial Studies</i> 21(4), 1455–1508; data PredictorData2025. (E)</li>
+    <li>Goldman Sachs Asset Management, long-run capital market assumptions, as mapped in Session 2. (A)</li></ul>
+    <div class="lbl2">Course materials and data</div><ul class="refl">
+    <li>Lecture notes, Chapters 10–12</li><li>Study notes, Session 5; Session 5 slides</li><li>Case 1 data: nine asset classes, monthly returns 2000–2025 (Asset_Returns_Monthly.xlsx)</li><li>Case 1 notebook (Case1_notebook.ipynb)</li></ul>
+    <div><a class="lnk" href="${MCU}" target="_blank" rel="noopener">MyCourses: Portfolio Management ↗</a></div>`}]}};
+
+/* ======================================================================
+   NAVIGATION
+   ====================================================================== */
+const ORDER=['S','A','B','C','D','E','W'],KEYOF={S:'0',A:'A',B:'B',C:'C',D:'D',E:'E',W:'W'};
+const C={part:'S',step:0,line:0};
+const isDeck=p=>p==='S'||p==='W';
+const stepsOf=p=>isDeck(p)?DECK[p].pages:PARTS[p].steps;
+const nLines=(p,s)=>isDeck(p)?DECK[p].pages[s].n:PARTS[p].steps[s].lines.length;
+function go(p,s,l){C.part=p;C.step=s;C.line=l;try{localStorage.setItem('bl-pos',JSON.stringify(C));}catch(e){}render(true);}
+function fwd(){const p=C.part;if(C.line<nLines(p,C.step)-1){C.line++;render(false);return;}
+  if(C.step<stepsOf(p).length-1){go(p,C.step+1,0);return;}const k=ORDER.indexOf(p);if(k<ORDER.length-1)go(ORDER[k+1],0,0);}
+function back(){const p=C.part;if(C.line>0){C.line--;render(false);return;}
+  if(C.step>0){go(p,C.step-1,nLines(p,C.step-1)-1);return;}const k=ORDER.indexOf(p);if(k>0){const q=ORDER[k-1],n=stepsOf(q).length;go(q,n-1,nLines(q,n-1)-1);}}
+$('tabs').innerHTML=ORDER.map(p=>`<button data-p="${p}" aria-pressed="false"><kbd>${KEYOF[p]}</kbd>${isDeck(p)?DECK[p].tab:PARTS[p].tab}</button>`).join('');
+$('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>go(b.dataset.p,0,0));
+$('dk_next').onclick=fwd;$('dk_prev').onclick=back;$('c_next').onclick=fwd;$('c_prev').onclick=back;
+const KEYS='<kbd class="k">←</kbd> <kbd class="k">→</kbd> step through the build · <kbd class="k">0</kbd> start · <kbd class="k">A</kbd>–<kbd class="k">E</kbd> parts · <kbd class="k">W</kbd> wrap-up · <kbd class="k">F</kbd> full screen';
+document.addEventListener('keydown',e=>{if(e.target.type==='range'&&(e.key==='ArrowLeft'||e.key==='ArrowRight'))return;const k=e.key;
+  if(k==='ArrowRight'||k==='PageDown'||k===' '){fwd();e.preventDefault();return;}if(k==='ArrowLeft'||k==='PageUp'){back();e.preventDefault();return;}
+  if(k==='0'){go('S',0,0);return;}const u=k.toUpperCase();if('ABCDEW'.includes(u)&&u.length===1){go(u,0,0);return;}
+  if(u==='F'){try{document.fullscreenElement?document.exitFullscreen():document.documentElement.requestFullscreen().catch(()=>{});}catch(_){}}});
+
+/* ---------- rendering ---------- */
+function renderCtrls(st){const box=$('c_ctrls');const list=st.ctrls?st.ctrls(C.line):[];let h='';
+  for(const k of list){if(k==='vset'){h+=`<div class="ctrlrow"><span class="lbl">Views</span><div class="seg2" id="c_vset">${[['both','both'],['dur','duration'],['sb','stocks vs bonds']].map(([v,t])=>`<button data-v="${v}" aria-pressed="${G.vset===v}">${t}</button>`).join('')}</div></div>`;continue;}if(k==='draw'){h+=`<button class="go" id="c_draw">Show another draw</button>`;continue;}if(k==='asset'){h+=`<div class="ctrlrow"><span class="lbl">Asset</span><div class="seg2" id="c_asset"><button data-a="0" aria-pressed="${G.asset===0}">US equity</button><button data-a="4" aria-pressed="${G.asset===4}">IG bonds</button></div></div>`;continue;}
+    const d=ctl[k]();h+=`<div class="ctl"><label for="s_${k}">${d.lab} <output id="o_${k}">${d.fmt(d.get())}</output></label><input type="range" id="s_${k}" min="${d.min}" max="${d.max}" step="${d.step}" value="${d.get()}"><span class="hint">${d.hint}</span></div>`;}
+  if(list.length)h+=`<button class="go" id="c_reset" style="background:transparent;color:var(--ink);border:1px solid var(--rule);font-weight:500;font-size:14px;padding:6px 12px">Reset all sliders</button>`;
+  box.innerHTML=h;box.hidden=!list.length;if(list.length===1&&list[0]==='draw'){const r=$('c_reset');if(r)r.remove();}
+  for(const k of list){if(k==='vset'){box.querySelectorAll('#c_vset button').forEach(b=>b.onclick=()=>{G.vset=b.dataset.v;box.querySelectorAll('#c_vset button').forEach(x=>x.setAttribute('aria-pressed',x===b));renderDyn();});continue;}if(k==='draw'){$('c_draw').onclick=()=>{RIDX++;renderDyn();};continue;}if(k==='asset'){box.querySelectorAll('#c_asset button').forEach(b=>b.onclick=()=>{G.asset=+b.dataset.a;box.querySelectorAll('#c_asset button').forEach(x=>x.setAttribute('aria-pressed',x===b));renderDyn();});continue;}
+    const d=ctl[k](),el=$('s_'+k);el.oninput=()=>{d.set(+el.value);$('o_'+k).textContent=d.fmt(+el.value);renderDyn();};}
+  const rs=$('c_reset');if(rs)rs.onclick=()=>{Object.assign(G,{lam:2.5,gam:2.5,tau:0.05,c:0.5,vk:1,q1:0.026,q2:0.010,c1:0.5,c2:0.5,cd:0.75,cs:0.12,te:0.01,vset:'both'});renderCtrls(st);renderDyn();};}
+function renderDyn(){const p=C.part,st=PARTS[p].steps[C.step],l=C.line;
+  $('c_eqs').innerHTML=st.lines.map((L,i)=>L.t?`${L.hd?`<div class="eqhd ${i>l?'dim':''}">${L.hd}</div>`:''}<div class="eq ${i>l?'dim':''}"><span>${tex(typeof L.t==='function'?L.t():L.t)}</span><span class="ann">${L.a?L.a():''}</span></div>`:'').join('');
+  $('c_text').innerHTML=ulC(st.text(l));
+  $('c_figT').textContent=st.figT?st.figT():'';
+  $('c_leg').innerHTML=(st.leg?st.leg(l):[]).map(([clr,t])=>`<span><span class="sw" style="background:${clr}"></span>${t}</span>`).join('');
+  if(st.fig==='html'){$('cfig').hidden=true;$('chtml').hidden=false;$('chtml').innerHTML=st.html(l);}
+  else{$('cfig').hidden=false;$('chtml').hidden=true;const {c,w,h}=prep($('cfig'));st.draw(c,w,h,COL());}}
+let lastKey='';
+function render(full){const p=C.part;
+  [...$('tabs').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.p===p));
+  $('h1').textContent=isDeck(p)?DECK[p].name:PARTS[p].name;$('keys').innerHTML=KEYS;
+  $('sDeck').hidden=!isDeck(p);$('sLab').hidden=isDeck(p);
+  if(isDeck(p)){const pg=DECK[p].pages[C.step];$('dk_num').textContent=`PAGE ${C.step+1} OF ${DECK[p].pages.length}`;$('dk_body').innerHTML=pg.html(C.line);if(pg.draw){const cv=$('dk_cv');requestAnimationFrame(()=>pg.draw(cv,C.line));}
+    $('dk_body').querySelectorAll('tr[data-go]').forEach(r=>r.onclick=()=>go(r.dataset.go,0,0));return;}
+  const st=PARTS[p].steps[C.step];
+  $('c_num').textContent=`${p} · STEP ${C.step+1} OF ${PARTS[p].steps.length}`;$('c_title').textContent=st.title;
+  $('c_dots').innerHTML=PARTS[p].steps.map((_,j)=>`<button class="dot ${j===C.step?'on':''}" aria-label="Step ${j+1}"></button>`).join('');
+  [...$('c_dots').children].forEach((d,j)=>d.onclick=()=>go(p,j,0));
+  $('c_note').textContent=st.note||'';
+  const key=p+C.step+'|'+(st.ctrls?st.ctrls(C.line).join():'');if(full||key!==lastKey){renderCtrls(st);lastKey=key;}
+  renderDyn();}
+$('src').textContent='Case 1 data: nine asset classes, monthly excess returns over US cash, 2000–2025. λ = γ = 2.5, τ = 0.05 unless changed with the sliders.';
+let rr=0;window.addEventListener('resize',()=>{cancelAnimationFrame(rr);rr=requestAnimationFrame(()=>{if(!isDeck(C.part))renderDyn();else render(false);});});
+try{matchMedia('(prefers-color-scheme: dark)').addEventListener('change',()=>{if(!isDeck(C.part))renderDyn();});}catch(e){}
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{if(!isDeck(C.part))renderDyn();});
+/* start: hash (#A ... #W, #start) or last position */
+{const h=(location.hash||'').slice(1).toUpperCase();if(ORDER.includes(h))go(h,0,0);else if(h==='START')go('S',0,0);
+  else{let s=null;try{s=JSON.parse(localStorage.getItem('bl-pos'));}catch(e){}if(s&&ORDER.includes(s.part)&&s.step<stepsOf(s.part).length&&s.line<nLines(s.part,s.step))go(s.part,s.step,s.line);else go('S',0,0);}}
+window.addEventListener('hashchange',()=>{const h=(location.hash||'').slice(1).toUpperCase();if(ORDER.includes(h))go(h,0,0);});
+window.__BL={BL,optimize,PIv,G,P7,AQR,GOLD};
+})();
+</script>
