@@ -11,5 +11,6 @@ Served by GitHub Pages from the `main` branch root.
    <meta charset="utf-8">
    <meta name="viewport" content="width=device-width, initial-scale=1">
    ```
-3. Add a link to it in `index.html`.
-4. Commit and push. The site updates within a minute or two.
+3. Add a back link to the overview just above the page's eyebrow line (copy the `.home` style and `<a class="home" href="../">← All sessions</a>` from an existing lecture).
+4. Add a link to it in `index.html`.
+5. Commit and push. The site updates within a minute or two.
