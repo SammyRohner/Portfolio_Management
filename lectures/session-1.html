@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Session 1: Portfolio Theory and Its Limits</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{--bg:#f2f4f6;--surface:#fff;--ink:#14202b;--muted:#5a6877;--rule:#d3dae2;--soft:#e6eaef;--exp:#1f4fd1;
+  --f-body:"IBM Plex Sans",system-ui,sans-serif;--f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace}
+@media (prefers-color-scheme: dark){:root{--bg:#0e141a;--surface:#151d25;--ink:#e5ebf1;--muted:#93a2b1;--rule:#2a3642;--soft:#1d2731;--exp:#80a3ff;color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);display:flex;flex-direction:column;
+  padding:12px max(16px,env(safe-area-inset-right)) 12px max(16px,env(safe-area-inset-left))}
+header,footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 16px;max-width:1440px;width:100%;margin:0 auto}
+.home{font-family:var(--f-mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--exp);text-decoration:none}
+.home:hover,.pdf:hover{text-decoration:underline}
+h1{font-size:16px;font-weight:500;margin:0}
+.pdf{font-size:14px;color:var(--muted)}
+.stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;margin:12px 0;container-type:size}
+.stage img{display:block;width:min(100cqw,100cqh*453.543/255.118);height:auto;aspect-ratio:453.543/255.118;background:#fff;border-radius:4px;
+  box-shadow:0 1px 3px rgba(0,0,0,.12),0 6px 24px rgba(0,0,0,.08);cursor:pointer;user-select:none}
+footer{justify-content:center}
+button{font:inherit;font-size:15px;border:1px solid var(--rule);background:var(--surface);color:var(--ink);border-radius:6px;padding:6px 14px;cursor:pointer}
+button:hover{border-color:var(--exp)}
+button:disabled{opacity:.4;cursor:default}
+button:focus-visible{outline:2px solid var(--exp);outline-offset:2px}
+.num{font-family:var(--f-mono);font-size:14px;color:var(--muted);min-width:70px;text-align:center}
+:fullscreen body,body:fullscreen{background:#000;padding:0}
+body:fullscreen header,body:fullscreen footer{display:none}
+body:fullscreen .stage{margin:0}
+body:fullscreen .stage img{border-radius:0;box-shadow:none}
+</style>
+</head>
+<body>
+<header>
+  <a class="home" href="../">← All sessions</a>
+  <h1>Session 1: Portfolio Theory and Its Limits</h1>
+  <a class="pdf" href="session-1/session-1-slides.pdf" download>Download PDF</a>
+</header>
+<div class="stage"><img id="slide" alt=""></div>
+<footer>
+  <button id="prev" aria-label="Previous slide">←</button>
+  <span class="num" id="num"></span>
+  <button id="next" aria-label="Next slide">→</button>
+  <button id="fs" title="Full screen (F)">Full screen</button>
+</footer>
+<script>
+const DIR='session-1', N=37;
+const img=document.getElementById('slide'), num=document.getElementById('num'),
+      prev=document.getElementById('prev'), next=document.getElementById('next');
+const src=i=>`${DIR}/${String(i).padStart(2,'0')}.svg`;
+let cur=1;
+function show(i){
+  cur=Math.min(N,Math.max(1,i));
+  img.src=src(cur); img.alt=`Slide ${cur} of ${N}`;
+  num.textContent=`${cur} / ${N}`;
+  prev.disabled=cur===1; next.disabled=cur===N;
+  history.replaceState(null,'','#'+cur);
+  [cur+1,cur-1].forEach(j=>{if(j>=1&&j<=N)new Image().src=src(j);});
+}
+prev.onclick=()=>show(cur-1);
+next.onclick=()=>show(cur+1);
+img.onclick=e=>{const r=img.getBoundingClientRect();show(e.clientX-r.left<r.width/3?cur-1:cur+1);};
+document.getElementById('fs').onclick=toggleFs;
+function toggleFs(){document.fullscreenElement?document.exitFullscreen():document.body.requestFullscreen?.();}
+document.addEventListener('keydown',e=>{
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  const k=e.key;
+  if(['ArrowRight','ArrowDown','PageDown',' '].includes(k)){e.preventDefault();show(cur+1);}
+  else if(['ArrowLeft','ArrowUp','PageUp'].includes(k)){e.preventDefault();show(cur-1);}
+  else if(k==='Home')show(1);
+  else if(k==='End')show(N);
+  else if(k==='f'||k==='F')toggleFs();
+});
+let x0=null;
+img.addEventListener('touchstart',e=>{x0=e.touches[0].clientX;},{passive:true});
+img.addEventListener('touchend',e=>{if(x0==null)return;const dx=e.changedTouches[0].clientX-x0;x0=null;
+  if(Math.abs(dx)>40){e.preventDefault();show(dx<0?cur+1:cur-1);}});
+show(parseInt(location.hash.slice(1))||1);
+</script>
+</body>
+</html>
