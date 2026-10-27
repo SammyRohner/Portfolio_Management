@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portfolio Management</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,600&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+:root{--bg:#f2f4f6;--surface:#fff;--ink:#14202b;--muted:#5a6877;--rule:#d3dae2;--accent:#1f4fd1}
+@media (prefers-color-scheme: dark){:root{--bg:#0e141a;--surface:#151d25;--ink:#e5ebf1;--muted:#93a2b1;--rule:#2a3642;--accent:#80a3ff;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 "IBM Plex Sans",system-ui,sans-serif;padding:48px 16px}
+main{max-width:720px;margin:0 auto}
+h1{font:600 clamp(28px,4vw,40px)/1.1 "Source Serif 4",Georgia,serif;margin:0 0 6px}
+p.sub{color:var(--muted);margin:0 0 32px}
+ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+a.card{display:block;background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;color:inherit;text-decoration:none}
+a.card:hover{border-color:var(--accent)}
+a.card strong{display:block;font-weight:500;color:var(--accent)}
+a.card span{color:var(--muted);font-size:15px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Portfolio Management</h1>
+  <p class="sub">Interactive lecture materials</p>
+  <ul>
+    <!-- Add one <li> per lecture; file goes in lectures/ -->
+    <li><a class="card" href="lectures/predictability-lab-4.html"><strong>Predictability Lab</strong><span>Lab 4 · Return predictability, forecasts and horizons</span></a></li>
+  </ul>
+</main>
+</body>
+</html>
