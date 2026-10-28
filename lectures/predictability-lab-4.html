@@ -1,6 +1,8 @@
 <!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Predictability Lab</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -101,6 +103,9 @@ canvas{display:block;width:100%}
 .scsrc{font-family:var(--f-mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--fc)}
 .sc ul{margin:0;padding-left:20px;display:grid;gap:6px;font-size:15.5px;line-height:1.42}
 .sc li::marker{color:var(--fc)}
+.vtab{border-collapse:collapse;width:100%;font-size:15px;line-height:1.4}.vtab th,.vtab td{padding:9px 10px;border-top:1px solid var(--rule);text-align:left;vertical-align:top}
+.vtab thead th{font-size:13px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;border-top:0}.vtab tbody th{font-weight:600;width:22%}
+.vtab .vc{color:var(--exp);width:39%}.vtab .vn{color:var(--fc)}.vtab .dim0{opacity:0;transition:opacity .25s}
 .cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding:6px 0}
 @media (max-width:700px){.cards{grid-template-columns:minmax(0,1fr)}}
 .card{font:inherit;text-align:left;background:var(--bg);border:1px solid var(--rule);border-radius:10px;padding:16px 18px;cursor:pointer;display:grid;gap:10px;color:var(--ink)}
@@ -160,6 +165,10 @@ canvas{display:block;width:100%}
 .banner{font-size:22px;color:var(--bg);background:var(--ink);padding:18px 26px;border-radius:10px;margin:0}
 .lnk{font:inherit;font-size:16px;font-weight:600;color:var(--exp);text-decoration:none;border:1px solid var(--rule);border-radius:8px;padding:8px 14px;display:inline-block;background:var(--bg)}
 .dates{border-collapse:collapse;font-size:17px}.dates td{padding:6px 18px 6px 0;border-bottom:1px solid var(--rule)}.dates td:first-child{font-family:var(--f-mono);font-size:15px;white-space:nowrap;color:var(--muted)}
+.apx{display:grid;gap:14px}.apst{display:grid;grid-template-columns:40px minmax(0,1fr);gap:14px;align-items:start;border-top:1px solid var(--rule);padding-top:12px}
+.apno{width:34px;height:34px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-family:var(--f-mono);font-weight:600}
+.apbd{display:grid;gap:4px;min-width:0}.aphd{font-size:19px;font-weight:600}.aptx{font-size:16px;color:var(--muted);line-height:1.45}
+.apcv{font-size:16px;line-height:1.5;background:var(--soft);border-radius:8px;padding:12px 16px}
 .refl{columns:2 460px;column-gap:40px;margin:0;padding-left:20px;font-size:15.5px;line-height:1.45}.refl li{break-inside:avoid;margin-bottom:8px}.refl a{color:var(--exp)}
 .deck .lbl2{font-family:var(--f-mono);font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
 
@@ -240,6 +249,7 @@ kbd.k{font-family:var(--f-mono);font-size:12px;border:1px solid var(--rule);bord
       <figcaption><b id="i_figT"></b><span class="legend" id="i_leg"></span></figcaption>
       <canvas id="ifig" role="img" aria-label="Chart for the current step"></canvas>
       <div id="icards" class="cards" hidden></div>
+      <div id="isum" hidden></div>
     </figure>
   </section>
 
@@ -788,8 +798,8 @@ const CSTEPS=[
   lines:[{hd:'Campbell and Thompson (2008)',t:'SR^{*} = \\sqrt{\\dfrac{SR^2 + R^2}{1 - R^2}}',a:()=>`stocks, buy and hold:<br>SR = ${EB.SA.toFixed(2)} a year`},
          {t:'R^2 = 0.5\\%,\\ 1\\%',a:()=>`SR* = ${EB.sh(.005).toFixed(2)}<br>SR* = ${EB.sh(.01).toFixed(2)}`},
          {t:'\\text{term spread} \\to \\text{bonds:}\\ R^2_{IS},\\ R^2_{OS}',a:()=>{const B=build('tms',false);return `bonds: SR = ${EB.SAb.toFixed(2)}<br>R²<sub>IS</sub> ${sgn(B.R2IS)}% → ${EB.shb(B.R2IS).toFixed(2)}<br>R²<sub>OS</sub> ${sgn(B.R2OS)}% → ${EB.shb(B.R2OS).toFixed(2)}`;}}],
-  text:()=>{const B=build('tms',false),D=build('dp',false);return [[`If the predictive relation were <b>known</b>, an investor could time the market: more stocks when the forecast is high, fewer when it is low.`,`Campbell and Thompson (2008): timing raises the Sharpe ratio from SR to SR*. SR is monthly here, R² is the monthly predictive R².`,`US stocks over T-bills, 1926–2025: buy and hold SR = <b>${EB.SA.toFixed(2)}</b> a year.`],
-     [`A monthly R² of 0.5% raises the Sharpe ratio of stocks from ${EB.SA.toFixed(2)} to <b>${EB.sh(.005).toFixed(2)}</b>; 1% raises it to <b>${EB.sh(.01).toFixed(2)}</b>.`,`Monthly R²s are always small. Small is not the same as worthless.`],
+  text:()=>{const B=build('tms',false),D=build('dp',false);return [[`If the predictive relation were <b>known</b>, an investor could time the market: more stocks when the forecast is high, fewer when it is low.`,`Campbell and Thompson (2008): timing raises the Sharpe ratio from SR to SR*. The formula works in months: monthly SR, monthly R², then SR* is scaled back to a year (× √12).`,`US stocks over T-bills, 1926–2025: buy and hold SR = <b>${EB.SA.toFixed(2)}</b> a year.`,`Where the formula comes from: <a class="lnk" href="#" onclick="toApx();return false;">Appendix, four steps ↗</a>`],
+     [`A monthly R² of 0.5% raises the Sharpe ratio of stocks from ${EB.SA.toFixed(2)} to <b>${EB.sh(.005).toFixed(2)}</b>; 1% raises it to <b>${EB.sh(.01).toFixed(2)}</b>.`,`By hand: monthly SR = ${EB.SA.toFixed(2)}/√12 = ${(EB.SA/Math.sqrt(12)).toFixed(3)}; SR* = √((${(EB.SA/Math.sqrt(12)).toFixed(3)}² + 0.005)/0.995) = ${(EB.sh(.005)/Math.sqrt(12)).toFixed(3)} a month = <b>${EB.sh(.005).toFixed(2)}</b> a year.`,`Monthly R²s are always small. Small is not the same as worthless.`],
      [`The catch: the formula assumes the R² is <b>true</b>. The honest check is the out-of-sample R².`,`The term spread for bonds passes it: R²<sub>IS</sub> ${sgn(B.R2IS)}%, R²<sub>OS</sub> ${sgn(B.R2OS)}%. The bond Sharpe ratio would rise from ${EB.SAb.toFixed(2)} to <b>${EB.shb(B.R2OS).toFixed(2)}</b>.`,`The dividend yield does not: R²<sub>OS</sub> ${sgn(D.R2OS)}%. Next: how big a bet does a forecast ask for?`]][C3.line];}},
  {title:'Taken literally, forecasts give huge bets',kind:'e_tilt',sec:'E',
   lines:[{hd:'Tilt from a forecast',t:'\\Delta w = \\dfrac{\\hat\\mu - \\bar\\mu}{\\gamma\\,\\sigma^2}',a:()=>`forecast minus long-run mean,<br>over risk aversion × variance`},
@@ -951,7 +961,7 @@ function drawE(c,w,h,col,kd){const L=64,R=w-20,T=20,B=h-40,lab=(s,x,y,clr,al,bl,
   const back=(s,x,y,al,f)=>{c.font=f||'600 14px "IBM Plex Mono", monospace';const tw=c.measureText(s).width,x0=al==='right'?x-tw-6:al==='center'?x-tw/2-6:x-6;c.fillStyle=col.surf;c.globalAlpha=.92;c.fillRect(x0,y-11,tw+12,22);c.globalAlpha=1;};
   const yrs=[1970,1980,1990,2000,2010,2020].map(v=>[v,v]),tx=k=>Math.floor(MD.ym[k]/100)+(MD.ym[k]%100-.5)/12;
   if(kd==='e_sharpe'){const x0=-.01,x1=.02,y0=C3.line>=2?.1:.3,y1=.7,X=v=>L+(v-x0)/(x1-x0)*(R-L),Y=v=>B-(v-y0)/(y1-y0)*(B-T);
-    axes(c,X,Y,{l:L,r:R,b:B},nice(y0,y1,6),v=>v.toFixed(1),[-.01,-.005,0,.005,.01,.015,.02].map(v=>[v,(v*100).toFixed(1)+'%']),col);
+    axes(c,X,Y,{l:L,r:R,b:B},(C3.line>=2?[.1,.2,.3,.4,.5,.6,.7]:[.3,.35,.4,.45,.5,.55,.6,.65,.7]),v=>C3.line>=2?v.toFixed(1):v.toFixed(2),[-.01,-.005,0,.005,.01,.015,.02].map(v=>[v,(v*100).toFixed(1)+'%']),col);
     lab('monthly predictive R²',R,B+30,col.mut,'right','top',SANS);lab('Sharpe ratio, a year',L+6,T,col.mut,'left','top',SANS);
     c.fillStyle=col.soft;c.fillRect(X(x0),T,X(0)-X(x0),B-T);lab('R² < 0: the forecast',X(-.005),T+30,col.mut,'center','middle',SANS);lab('does worse than the average',X(-.005),T+48,col.mut,'center','middle',SANS);
     c.strokeStyle=col.mut;c.setLineDash([6,4]);c.lineWidth=1.5;c.beginPath();c.moveTo(X(0),Y(EB.SA));c.lineTo(R,Y(EB.SA));c.stroke();c.setLineDash([]);
@@ -1056,6 +1066,14 @@ const FALL=[
  ['“Buy strong companies with good earnings growth. They give better returns.”','Strong earnings are known and priced. Expected returns reward risk, not quality.'],
  ['“Stocks fell today under temporary selling pressure; big trades move prices.”','If the fall were temporary, other buyers would step in and stop it. In the classic view, the demand curve for a stock is flat.'],
  ['“Some stocks fell too far in the crash because funds had to sell to meet redemptions.”','Then someone else should buy the bargains. Fire-sale discounts should be competed away quickly.']];
+const FNOW=[
+ ['Bounce after profit-taking','Small weekly reversals exist, mostly eaten by trading costs.'],
+ ['Slow drift after news','Documented: prices drift after earnings news, and momentum. The strongest case against the classical view.'],
+ ['AI stocks','The classical answer holds: high valuations have been followed by low returns (screen C).'],
+ ['Strong earnings growth','Profitable, high-quality firms have earned a premium. Risk or mispricing is still debated.'],
+ ['Big trades move prices','Demand curves slope down: index inclusions and large flows move prices, partly reversed later.'],
+ ['Fire sales in the crash','Documented: funds hit by redemptions sell at a discount; prices recover over months.']];
+const sumTable=l=>`<table class="vtab"><thead><tr><th>Statement</th><th>Classical efficient markets</th><th class="${l<1?'dim0':''}">What the data say</th></tr></thead><tbody>${FALL.map((f,i)=>`<tr><th>${i+1}. ${FNOW[i][0]}</th><td class="vc">${f[1]}</td><td class="vn ${l<1?'dim0':''}">${FNOW[i][1]}</td></tr>`).join('')}</tbody></table>`;
 const ISTEPS=[
  {title:'What “predictable” means',
   lines:[{t:'R_{t+1} = a + b\\,x_t + \\varepsilon_{t+1}',a:()=>`x<sub>t</sub>: anything known today`},
@@ -1087,7 +1105,11 @@ const ISTEPS=[
          {t:'\\sigma[\\mathrm{E}_t(R^e)]\\,/\\,\\mathrm{E}(R^e)',a:()=>{const f=newFact(1);return `${pc1(f.sdE)} / ${pc1(f.mean)} = ${(f.sdE/f.mean).toFixed(2)}`;}},
          {t:'D_{t+1}/P_{t+1} = c + \\phi\\,D_t/P_t + \\delta_{t+1}',a:()=>`φ = ${phiDP().toFixed(2)}`}],
   text:()=>{const f=newFact(1),lo=f.mean-f.sdE,hi=f.mean+f.sdE;if(I.line<3)return ul(['“Returns are predictable” = “expected returns vary over time”.',`The one-year expected excess return is not a steady ${pc1(f.mean)}.`,`It is about ${pc1(lo)} in some years and ${pc1(hi)} in others (±1σ).`,'Expected returns are high when prices are low, and they stay high or low for years.']);
-    return ul([`The dividend yield moves slowly: each year it keeps about ${Math.round(phiDP()*100)}% of its distance from the average.`,'A persistent, time-varying expected return is the key to long horizons.','Next screen: why that makes long-horizon returns so predictable.']);}},
+    return ul([`The dividend yield moves slowly: each year it keeps about ${Math.round(phiDP()*100)}% of its distance from the average.`,'A persistent, time-varying expected return is the key to long horizons.','Step 6: back to the six statements.']);}},
+ {title:'Six statements: the verdict',sum:true,
+  lines:[{t:'\\text{Classical:}\\ \\ \\mathrm{E}_t(R_{t+1}) = \\mathrm{E}(R)',a:()=>`competition removes<br>any predictable return`},
+         {t:'\\text{Data:}\\ \\ \\mathrm{E}_t(R_{t+1})\\ \\text{varies}',a:()=>`some effects survive;<br>the big one is slow`}],
+  text:()=>I.line<1?ul(['Each statement claims that some return is predictable.','The classical answer to all six: competition removes it.']):ul(['The data partly disagree: drift after news, price pressure and fire sales are documented.','Most short-lived effects are small and eaten by trading costs.','The big, robust effect is slow: expected returns vary with prices, over years (steps 4–5).','Next screen: why that makes long-horizon returns so predictable.'])},
 ];
 function iRender(){
   const s=ISTEPS[I.step];
@@ -1096,15 +1118,16 @@ function iRender(){
   $('i_text').innerHTML=s.text();
   [...$('i_dots').children].forEach((d,j)=>d.classList.toggle('on',j===I.step));
   $('i_prev').disabled=I.step===0&&I.line===0;
-  $('i_sampw').hidden=I.step<3;$('i_toB').hidden=I.step<4;
-  $('ifig').hidden=!!s.cards;$('icards').hidden=!s.cards;
-  const T={0:'Annual excess return on US stocks, 1927–2025',1:'Six statements: what would efficient markets say?',2:'Stock and T-bill returns, and this year against next year',3:'Dividend yield and the following seven years’ return',4:'The expected excess return implied by the dividend yield'};
+  $('i_sampw').hidden=I.step<3||!!s.sum;$('i_toB').hidden=I.step<ISTEPS.length-1;
+  $('ifig').hidden=!!(s.cards||s.sum);$('icards').hidden=!s.cards;$('isum').hidden=!s.sum;if(s.sum)$('isum').innerHTML=sumTable(I.line);
+  const T={0:'Annual excess return on US stocks, 1927–2025',1:'Six statements: what would efficient markets say?',2:'Stock and T-bill returns, and this year against next year',3:'Dividend yield and the following seven years’ return',4:'The expected excess return implied by the dividend yield',5:'Six statements: the classical answer and the evidence'};
   $('i_figT').textContent=T[I.step];
   const L={0:`<span><span class="dotsw" style="background:var(--real);opacity:.55;border-radius:2px"></span>excess return</span><span><span class="sw" style="background:var(--ink)"></span>average</span>${I.line>=1?'<span><span class="sw" style="background:var(--exp)"></span>a conditional mean (from D/P, step 4)</span>':''}`,
     1:'<span>click a card to see the answer</span>',
     2:`<span><span class="sw" style="background:var(--real)"></span>stocks</span><span><span class="sw" style="background:var(--exp)"></span>T-bills</span>`,
     3:`<span><span class="sw" style="background:var(--exp)"></span>4 × D/P</span><span><span class="sw" style="background:var(--real)"></span>average excess return, next 7 years</span>`,
-    4:`<span><span class="sw" style="background:var(--exp)"></span>E<sub>t</sub>(R<sup>e</sup><sub>t+1</sub>)</span><span><span class="dotsw" style="background:var(--real);opacity:.45;border-radius:2px"></span>realised next year</span>`};
+    4:`<span><span class="sw" style="background:var(--exp)"></span>E<sub>t</sub>(R<sup>e</sup><sub>t+1</sub>)</span><span><span class="dotsw" style="background:var(--real);opacity:.45;border-radius:2px"></span>realised next year</span>`,
+    5:`<span><span class="sw" style="background:var(--exp)"></span>classical efficient markets</span>${I.line>=1?'<span><span class="sw" style="background:var(--fc)"></span>what the data say</span>':''}`};
   $('i_leg').innerHTML=L[I.step];
   drawI();
 }
@@ -1292,7 +1315,7 @@ const START=[
    ${r(2,'C','Other predictors and horizons','CAPE, term spread, default spread; R² by horizon','14.3–14.4','Part 2','2.2–2.5')}
    ${r(3,'D','Short-term forecasting','The Goyal–Welch test: forecasting in real time','14.6','Part 4','4.1–4.2')}
    ${r(4,'E','From forecast to bet','Small R², tilts, did it pay, confidence','14.6–14.8','Parts 4–5','4.3, 5')}
-   ${r(6,'W','Wrap-up and next steps','Takeaways, Case 1 Task 2, before Tuesday, references','Ch. 14 key points','Part 6','5.1')}</tbody></table>`;}},
+   ${r(6,'W','Wrap-up and next steps','Takeaways, Case 1 Task 2, before Tuesday, references, appendix','Ch. 14 key points','Part 6','5.1')}</tbody></table>`;}},
  {n:4,html:l=>`<h2>Where we are</h2><p class="sub">Yesterday: long-run capital market assumptions. Today: the evidence behind them, and its limits</p>
    <div class="chain"><div class="box"><b>Anchor</b><span>market weights</span><span class="ss">Session 5</span></div>
    <div class="box now"><b>Long-run views</b><span>valuation, yields</span><span class="ss">Sessions 3–4</span><span class="tag">Lab A–C</span></div>
@@ -1354,7 +1377,29 @@ const WRAP=[
    <li>Ilmanen, A. (2026), Understanding Return Expectations, AQR presentation, Q3 2026 (C)</li>
    <li>Goyal–Welch data, PredictorData2025, monthly and annual 1926–2025 (Case 1 exercise); MSCI and S&amp;P 500 dividend yields from the Case 1 files</li>
    <li>Case 1: Pension Fund Asset Allocation, Task 2</li></ul>
-   <div><a class="lnk" href="${MCU}" target="_blank" rel="noopener">MyCourses: Portfolio Management ↗</a></div>`;}}];
+   <div><a class="lnk" href="${MCU}" target="_blank" rel="noopener">MyCourses: Portfolio Management ↗</a></div>`;}},
+ {n:5,html:l=>{const sm=EB.SA/Math.sqrt(12),r=.01,s2=(sm*sm+r)/(1-r),sx=Math.sqrt(s2);
+   const st=(j,no,hd,txt,eqs,ann)=>`<div class="apst ${dimC(j,l)}"><div class="apno">${no}</div><div class="apbd"><div class="aphd">${hd}</div><div class="aptx">${txt}</div>
+     <div class="eq"><span>${eqs}</span><span class="ann">${ann}</span></div></div></div>`;
+   return `<h2>Appendix: where the Campbell–Thompson formula comes from</h2><p class="sub">For the curious: four steps from a forecast to the Sharpe ratio of timing (E, step 1). Running example: US stocks, R² = 1%.</p>
+   <div class="apx">
+   ${st(0,1,'Split the excess return into a predictable part and noise','x<sub>t</sub> is what the forecast knows today (its deviation from the mean, average zero). ε is what nobody can forecast.',
+     tex('r_{t+1} = \\mu + x_t + \\varepsilon_{t+1}'),`x<sub>t</sub>: variance σ<sub>x</sub>²<br>ε: variance σ<sub>ε</sub>²`)}
+   ${st(1,2,'Define the two numbers in the formula','Total variance splits in two. R² is the share of it the forecast explains, so the rest, 1 − R², is noise.',
+     tex('\\sigma^2 = \\sigma_x^2 + \\sigma_\\varepsilon^2,\\quad SR = \\dfrac{\\mu}{\\sigma},\\quad R^2 = \\dfrac{\\sigma_x^2}{\\sigma^2}\\ \\Rightarrow\\ \\sigma_\\varepsilon^2 = \\sigma^2(1-R^2)'),
+     `SR = ${EB.SA.toFixed(2)}/√12 = ${sm.toFixed(3)} a month<br>R² = 1%: 99% is noise`)}
+   ${st(2,3,'Time the market','Each month the investor knows the forecast: expected return μ + x<sub>t</sub>, risk σ<sub>ε</sub>. Holding more stocks when μ + x<sub>t</sub> is high earns, on average, the squared monthly Sharpe ratio. Since x<sub>t</sub> averages zero, E[(μ + x<sub>t</sub>)²] = μ² + σ<sub>x</sub>².',
+     tex('SR_t = \\dfrac{\\mu + x_t}{\\sigma_\\varepsilon},\\qquad SR^{*2} \\approx E\\big[SR_t^2\\big] = \\dfrac{\\mu^2 + \\sigma_x^2}{\\sigma_\\varepsilon^2}'),
+     `stock weight<br>w<sub>t</sub> ∝ (μ + x<sub>t</sub>)/σ<sub>ε</sub>²`)}
+   ${st(3,4,'Substitute step 2 and divide top and bottom by σ²','The forecast adds R² to the squared Sharpe ratio; dividing by 1 − R² reflects that only the noise is risk.',
+     tex('SR^{*2} = \\dfrac{\\mu^2 + R^2\\sigma^2}{\\sigma^2(1-R^2)} = \\dfrac{SR^2 + R^2}{1 - R^2}'),
+     `(${sm.toFixed(3)}² + 0.01)/0.99 = ${s2.toFixed(4)}<br>SR* = ${sx.toFixed(3)} a month<br>× √12 = <b>${(sx*Math.sqrt(12)).toFixed(2)}</b> a year`)}
+   <div class="apcv ${dimC(4,l)}"><b>Read it with three caveats.</b> <b>Upper bound:</b> it assumes the R² is true and known, so use R²<sub>OS</sub>, not R²<sub>IS</sub>. <b>Approximation:</b> the exact maximum is slightly lower; for a monthly SR near 0.13 and R² near 1% the difference is negligible. <b>Constant noise:</b> σ<sub>ε</sub>² is assumed not to change over time.
+   <div style="margin-top:10px"><a class="lnk" href="#" onclick="toSharpe();return false;">← Back to E: Small R² can still be worth something</a></div></div>
+   </div>`;}}];
+function toSharpe(){show(4);cGoto(CSTEPS.findIndex(s=>s.kind==='e_sharpe'),0);}
+function toApx(){show(6);WD.go(WRAP.length-1,0);}
+window.toApx=toApx;window.toSharpe=toSharpe;
 function makeDeck(pre,pages,before,after){const D={p:0,l:0};
   const render=()=>{const P=pages[D.p];$(pre+'_body').innerHTML=P.html(D.l);$(pre+'_num').textContent=`PAGE ${D.p+1} OF ${pages.length}`;
     $(pre+'_body').querySelectorAll('tr[data-go]').forEach(r=>r.onclick=()=>show(+r.dataset.go));};
@@ -1412,3 +1457,5 @@ iRender();
 window.addEventListener('hashchange',()=>{const n=fromHash();if(n!=null)show(n);});
 })();
 </script>
+
+</html>
